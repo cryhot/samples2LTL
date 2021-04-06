@@ -8,14 +8,14 @@ from boto.cloudformation.stack import Output
 operatorsAndArities = {'G':1, 'F':1, '!':1, 'U':2, '&':2,'|':2, '->':2, 'X':1, 'prop':0}
 
 
-def generateFromFormulaFile(files, outputFolder, equalNumber, traceLengths, repetitions, counter=0):
+def generateFromFormulaFile(files, outputFolder, equalNumber, traceLengths, repetitions, counter=0, finiteTraces=False):
     for fileName in files:
         with open(fileName) as fileWithFormulas:
             for line in fileWithFormulas:
                 f = Formula.convertTextToFormula(line)
                 for minRep in repetitions:
                     for traceLength in traceLengths:
-                        generatedTraces = testFileGeneration.generateTracesFromFormula(f, traceLength, minRep, minRep, 50*minRep, generateExactNumberOfTraces = equalNumber)
+                        generatedTraces = testFileGeneration.generateTracesFromFormula(f, traceLength, minRep, minRep, 50*minRep, generateExactNumberOfTraces = equalNumber, finiteTraces=finiteTraces)
                         patternName = fileName.split("/")[-1]
                         patternName = patternName.split(".")[0]                    
                         testName = outputFolder+"{:04}.trace".format(counter)
@@ -34,12 +34,13 @@ def main():
     parser.add_argument("--equal_number_accepting_rejecting", dest="equalNumber", default=True, action='store_true')
     parser.add_argument("--traces_set_sizes", dest="tracesSetSizes", default=[5, 10, 50, 100, 150, 200, 500], nargs='+', type=int)
     parser.add_argument("--trace_lengths", dest="traceLengths", default=[5, 10, 15], nargs='+', type=int)
+    parser.add_argument("--finite_traces", dest="finiteTraces", default=False, action='store_true')
     args, unknown = parser.parse_known_args()
     
     
     outputFolder = args.outputFolder
     generateFromFormulaFile(args.patternFile, outputFolder, equalNumber=args.equalNumber,\
-                             repetitions = args.tracesSetSizes, traceLengths=args.traceLengths, counter=int(args.counterStart))
+                             repetitions = args.tracesSetSizes, traceLengths=args.traceLengths, counter=int(args.counterStart), finiteTraces=args.finiteTraces)
     
 if __name__ == "__main__":
     main()

@@ -20,7 +20,7 @@ class Trace:
 
         self.lengthOfTrace = len(traceVector)
         self.intendedEvaluation = intendedEvaluation
-        if lassoStart != None:
+        if lassoStart not in (None, ""):
             self.lassoStart = int(lassoStart)
             if self.lassoStart >= self.lengthOfTrace:
                 pdb.set_trace()
@@ -28,8 +28,8 @@ class Trace:
                     "lasso start = %s is greater than any value in trace (trace length = %s) -- must be smaller" % (
                     self.lassoStart, self.lengthOfTrace))
         else:
-            self.lassoStart = 0
-        assert self.lengthOfTrace > 0 and self.lassoStart <= self.lengthOfTrace
+            self.lassoStart = None
+        assert self.lassoStart is None or self.lengthOfTrace > 0 and self.lassoStart <= self.lengthOfTrace
         self.numVariables = len(traceVector[0])
         self.traceVector = traceVector
         if literals == None:
@@ -41,7 +41,14 @@ class Trace:
     def __repr__(self):
         return repr(self.traceVector) + "\n" + repr(self.lassoStart) + "\n\n"
 
+    def __str__(self):
+        s = ';'.join(','.join(str(k) for k in t) for t in self.traceVector)
+        if self.lassoStart is not None: s += "::" + str(self.lassoStart)
+        return s
+
     def nextPos(self, currentPos):
+        if currentPos is None:
+            return None
         if currentPos == self.lengthOfTrace - 1:
             return self.lassoStart
         else:
@@ -52,11 +59,13 @@ class Trace:
         futurePositions = []
         alreadyGathered = set()
         while currentPos not in alreadyGathered:
+            if currentPos is None: break
             futurePositions.append(currentPos)
             alreadyGathered.add(currentPos)
             currentPos = self.nextPos(currentPos)
-        # always add a new one so that all the next-relations are captured
-        futurePositions.append(currentPos)
+        # else:
+        #     # always add a new one so that all the next-relations are captured
+        #     futurePositions.append(currentPos)
         return futurePositions
 
     def evaluateFormulaOnTrace(self, formula):
@@ -72,6 +81,8 @@ class Trace:
         return self.truthValue(formula, 0)
 
     def truthValue(self, formula, timestep):
+        if timestep is None:
+            return False
         futureTracePositions = self.futurePos(timestep)
         tableValue = self.truthAssignmentTable[formula][timestep]
         if tableValue != None:
@@ -165,13 +176,11 @@ class ExperimentTraces:
     def writeTracesToFile(self, tracesFileName):
         with open(tracesFileName, "w") as tracesFile:
             for accTrace in self.acceptedTraces:
-                line = ';'.join(','.join(str(k) for k in t) for t in accTrace.traceVector) + "::" + str(
-                    accTrace.lassoStart) + "\n"
+                line = str(accTrace) + "\n"
                 tracesFile.write(line)
             tracesFile.write("---\n")
             for rejTrace in self.rejectedTraces:
-                line = ';'.join(','.join(str(k) for k in t) for t in rejTrace.traceVector) + "::" + str(
-                    rejTrace.lassoStart) + "\n"
+                line = str(rejTrace) + "\n"
                 tracesFile.write(line)
             tracesFile.write("---\n")
             tracesFile.write(','.join(self.operators) + '\n')

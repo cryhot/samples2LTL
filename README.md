@@ -29,6 +29,6 @@ An example trace looks like this
  - x0 : 1,(1,0)*  
  - x1: 1,(0,1)*
 
- The value after separator `::` denotes the start of lasso that is being repeated forever. If it is missing, it assumes that the whole sequence is repeated indefinitely.
+ The value after separator `::` denotes the start of lasso that is being repeated forever. If it is missing, it assumes that the whole sequence is finite.
 
  

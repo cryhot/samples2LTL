@@ -232,14 +232,19 @@ class TreeSATEncoding:
         
 
         futureTracePositions = trace.futurePos(positionAtTrace)
-        
-        
-        
-        futureNodeVariablesLeftChild = [Bool('p_level%d_k%d_tmstp%d_trace%s' % (childrenLevelAndPos[0][0], childrenLevelAndPos[0][1], i, traceId))\
+        futureNodeVariablesLeftChild  = [Bool('p_level%d_k%d_tmstp%d_trace%s' % (childrenLevelAndPos[0][0], childrenLevelAndPos[0][1], i, traceId))
                                          for i in futureTracePositions]
-        futureNodeVariablesRightChild = [Bool('p_level%d_k%d_tmstp%d_trace%s' % (childrenLevelAndPos[1][0], childrenLevelAndPos[1][1], i, traceId))\
+        futureNodeVariablesRightChild = [Bool('p_level%d_k%d_tmstp%d_trace%s' % (childrenLevelAndPos[1][0], childrenLevelAndPos[1][1], i, traceId))
                                          for i in futureTracePositions]
-        
+
+        nextTracePositions = trace.nextPos(positionAtTrace)
+        if nextTracePositions is not None:
+            nextNodeVariablesLeftChild  = Bool('p_level%d_k%d_tmstp%d_trace%s' % (childrenLevelAndPos[0][0], childrenLevelAndPos[0][1], nextTracePositions, traceId))
+            nextNodeVariablesRightChild = Bool('p_level%d_k%d_tmstp%d_trace%s' % (childrenLevelAndPos[1][0], childrenLevelAndPos[1][1], nextTracePositions, traceId))
+        else:
+            nextNodeVariablesLeftChild  = False
+            nextNodeVariablesRightChild = False
+
 
         for operator in possibleOperators:
             if operator == '!': 
@@ -272,8 +277,7 @@ class TreeSATEncoding:
                 self.solver.add(Implies(possibleOperators['G'], currentNodeVariable == And(futureNodeVariablesLeftChild)))
                 self.arityOfOperatorRestrictions(1, operator, leftChildAtSameTracePositionNoneConnector, rightChildAtSameTracePositionNoneConnector)
             elif operator == 'X':
-                # there will always be at least two elements in futureNodeVariables... list (due to definition of futurePos function)
-                self.solver.add(Implies(possibleOperators['X'], currentNodeVariable == futureNodeVariablesLeftChild[1]))
+                self.solver.add(Implies(possibleOperators['X'], currentNodeVariable == nextNodeVariablesLeftChild))
                 self.arityOfOperatorRestrictions(1, operator, leftChildAtSameTracePositionNoneConnector, rightChildAtSameTracePositionNoneConnector)
             elif operator == 'U':
                 self.solver.add(Implies(possibleOperators['U'], currentNodeVariable == Or([\

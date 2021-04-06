@@ -6,7 +6,7 @@ from utils.Traces import Trace, ExperimentTraces
 
 operatorsAndArities = {'G':1, 'F':1, '!':1, 'U':2, '&':2,'|':2, '->':2, 'X':1, 'prop':0}
 
-def generateTracesFromFormula(formula, lengthOfTrace, minNumberOfAccepting, minNumberOfRejecting, totalMax = 20, numSuperfluousVars=1, generateExactNumberOfTraces=False):
+def generateTracesFromFormula(formula, lengthOfTrace, minNumberOfAccepting, minNumberOfRejecting, totalMax = 20, numSuperfluousVars=1, generateExactNumberOfTraces=False, finiteTraces=False):
     allVars = formula.getAllVariables()
     allTraces = {"accepting":[], "rejecting":[]}
     numberOfVars = len(allVars) + numSuperfluousVars
@@ -18,7 +18,7 @@ def generateTracesFromFormula(formula, lengthOfTrace, minNumberOfAccepting, minN
     while (len(allTraces["accepting"]) <= minNumberOfAccepting or len(allTraces["rejecting"]) <= minNumberOfRejecting)\
     and len(allTraces["accepting"]) + len(allTraces["rejecting"]) < totalMax: 
         
-        lassoStart = random.randint( 0, lengthOfTrace-1 )
+        lassoStart = None if finiteTraces else random.randint( 0, lengthOfTrace-1 )
         traceVector = [ [random.randint(0,1) for _ in range(numberOfVars)] for _ in range(lengthOfTrace) ] 
         
         trace = Trace(traceVector, lassoStart)

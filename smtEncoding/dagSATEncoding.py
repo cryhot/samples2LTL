@@ -363,7 +363,7 @@ class DagSATEncoding:
                                                                          self.l[(i,onlyArg)],\
                                                                          And([\
                                                                               self.y[(i, traceIdx, timestep)] ==\
-                                                                              self.y[(onlyArg, traceIdx, tr.nextPos(timestep))]\
+                                                                              (self.y[(onlyArg, traceIdx, tr.nextPos(timestep))] if tr.nextPos(timestep) is not None else False)\
                                                                               for timestep in range(tr.lengthOfTrace)\
                                                                               ])\
                                                                           )\
