@@ -6,7 +6,9 @@ from utils.Traces import Trace, ExperimentTraces
 
 operatorsAndArities = {'G':1, 'F':1, '!':1, 'U':2, '&':2,'|':2, '->':2, 'X':1, 'prop':0}
 
-def generateTracesFromFormula(formula, lengthOfTrace, minNumberOfAccepting, minNumberOfRejecting, totalMax = 20, numSuperfluousVars=1, generateExactNumberOfTraces=False, finiteTraces=False):
+def generateTracesFromFormula(formula, lengthOfTrace, minNumberOfAccepting, minNumberOfRejecting, totalMax = 20, numSuperfluousVars=1, generateExactNumberOfTraces=False,
+    finiteTraces=False, maxFalsePositiveRate=0, maxFalseNegativeRate=0,
+):
     allVars = formula.getAllVariables()
     allTraces = {"accepting":[], "rejecting":[]}
     numberOfVars = len(allVars) + numSuperfluousVars
@@ -33,7 +35,17 @@ def generateTracesFromFormula(formula, lengthOfTrace, minNumberOfAccepting, minN
             if generateExactNumberOfTraces == True and len(allTraces["rejecting"]) == minNumberOfRejecting:
                 continue
             allTraces["rejecting"].append(trace)
-    
+
+    i_fn = int(len(allTraces["accepting"])*maxFalsePositiveRate)
+    i_fp = int(len(allTraces["rejecting"])*maxFalseNegativeRate)
+    allTraces = {
+        "accepting": allTraces["accepting"][i_fn:] + allTraces["rejecting"][:i_fp],
+        "rejecting": allTraces["rejecting"][i_fp:] + allTraces["accepting"][:i_fn],
+    }
+
+    random.shuffle(allTraces["accepting"])
+    random.shuffle(allTraces["rejecting"])
+
     traces = ExperimentTraces(tracesToAccept=allTraces["accepting"], tracesToReject=allTraces["rejecting"], depth = depthOfFormula, possibleSolution = formula)
     return traces
 
