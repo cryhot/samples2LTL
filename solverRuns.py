@@ -28,8 +28,8 @@ def run_solver(finalDepth, traces, maxNumOfFormulas = 1, startValue=1, step=1, q
 
 
 def run_dt_solver(traces, subsetSize=config.DT_SUBSET_SIZE, txtFile="treeRepresentation.txt", strategy=config.DT_SAMPLING_STRATEGY, decreaseRate=config.DT_DECREASE_RATE,\
-                  repetitionsInsideSampling=config.DT_REPETITIONS_INSIDE_SAMPLING, restartsOfSampling=config.DT_RESTARTS_OF_SAMPLING, q = None, encoder=DagSATEncoding,):
-
+                  repetitionsInsideSampling=config.DT_REPETITIONS_INSIDE_SAMPLING, restartsOfSampling=config.DT_RESTARTS_OF_SAMPLING, q = None, encoder=DagSATEncoding, \
+                  misclassification=0):
     #try:
         config.encoder = encoder
         if q != None:
@@ -46,7 +46,9 @@ def run_dt_solver(traces, subsetSize=config.DT_SUBSET_SIZE, txtFile="treeReprese
         t.tic()
         (atoms, atomTraceEvaluation) = ab.buildAtoms(sizeOfPSubset=subsetSize, strategy = samplingStrategy, sizeOfNSubset=subsetSize, probabilityDecreaseRate=decreaseRate,\
                       numRepetitionsInsideSampling=repetitionsInsideSampling, numRestartsOfSampling = restartsOfSampling)
-        fb = DTFormulaBuilder(features = ab.atoms, data = ab.getMatrixRepresentation(), labels = ab.getLabels())
+
+        print(ab.atoms, ab.getMatrixRepresentation())
+        fb = DTFormulaBuilder(features = ab.atoms, data = ab.getMatrixRepresentation(), labels = ab.getLabels(), stoppingVal=misclassification)
         fb.createASeparatingFormula()
         timePassed = t.tocvalue()
         atomsFile = "atoms.txt"

@@ -7,11 +7,12 @@ from collections import deque
 import os
 
 class DTFormulaBuilder:
-    def __init__(self, features=None, data=None, labels=None):
+    def __init__(self, features=None, data=None, labels=None, stoppingVal=0):
         self.features = features
         self.data = [[self.convertData(k) for k in traceValuesPerFormulas] for traceValuesPerFormulas in data] 
         self.labels = [self.convertData(l) for l in labels]
-    
+        self.stoppingVal = stoppingVal
+
     def convertData(self, x):
         if int(x) > 0:
             return 1
@@ -39,7 +40,10 @@ class DTFormulaBuilder:
     def createASeparatingFormula(self):
         if self.data == None or self.labels == None:
             raise ValueError("missing needed data")
-        self.classifier = tree.DecisionTreeClassifier().fit(self.data, self.labels)
+
+        #using appropriate gini stopping criteria to match our stopping criteria 
+        convertStoppingVal = 2*(self.stoppingVal)*(1-self.stoppingVal) 
+        self.classifier = tree.DecisionTreeClassifier(min_impurity_split=convertStoppingVal).fit(self.data, self.labels)
         
     def tree_to_dot_file(self, outputFile):
         treeDotFormat = tree.export_graphviz(self.classifier, out_file=outputFile, feature_names = self.features, filled=True)
@@ -67,7 +71,7 @@ class DTFormulaBuilder:
                 if tree_.feature[node] != _tree.TREE_UNDEFINED:
                     treeQueue.append((tree_.children_left[node], depth+1))
                     treeQueue.append((tree_.children_right[node], depth+1))
-    
+        print(treeQueue)
     
     
     def numberOfNodes(self):

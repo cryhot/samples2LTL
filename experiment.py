@@ -20,12 +20,13 @@ def main():
     
     parser = argparse.ArgumentParser()
     parser.add_argument("--traces", dest="tracesFileName", default="traces/dummy.trace")
-    parser.add_argument("--max_depth", dest="maxDepth", default='8')
+    parser.add_argument("--max_depth", dest="maxDepth", default='8')    
     parser.add_argument("--start_depth", dest="startDepth", default='1')
     parser.add_argument("--max_num_formulas", dest="numFormulas", default='1')
     parser.add_argument("--iteration_step", dest="iterationStep", default='1')
     parser.add_argument("--test_dt_method", dest="testDtMethod", default=False, action='store_true')
     parser.add_argument("--test_sat_method", dest="testSatMethod", default=False, action='store_true')
+    parser.add_argument("--misclassification", dest="misclassification", default=0)#only for decision trees
     parser.add_argument("--timeout", dest="timeout", default=600, help="timeout in seconds")
     parser.add_argument("--log", dest="loglevel", default="INFO")
     args,unknown = parser.parse_known_args()
@@ -38,7 +39,6 @@ def main():
      - each trace is a list of recordings at time units (time points)
      - each time point is a list of variable values (x1,..., xk) 
     """
-    
     numeric_level = args.loglevel.upper()
     logging.basicConfig(level=numeric_level)
 
@@ -53,21 +53,20 @@ def main():
     traces = ExperimentTraces()
     traces.readTracesFromFile(tracesFileName)
     solvingTimeout = int(args.timeout)
-    #print(traces)
     timeout = int(args.timeout)
+    misclassification = float(args.misclassification)
+
+
     if args.testSatMethod == True:
         [formulas, timePassed] = run_solver(finalDepth=maxDepth, traces=traces, maxNumOfFormulas = numFormulas, startValue=startDepth, step=iterationStep)
         logging.info("formulas: "+str([f.prettyPrint(f) for f in formulas])+", timePassed: "+str(timePassed))
         
     
-    if args.testDtMethod == True:
-        
-        [timePassed, numAtoms, numPrimitives] = run_dt_solver(traces=traces)
+    if args.testDtMethod == True:    
+        [timePassed, numAtoms, numPrimitives] = run_dt_solver(traces=traces, misclassification=misclassification)
         logging.info("timePassed: {0}, numAtoms: {1}, numPrimitives: {2}".format(str(timePassed), str(numAtoms), str(numPrimitives)))
         
     
-
-            
 
 if __name__ == "__main__":
     main()
