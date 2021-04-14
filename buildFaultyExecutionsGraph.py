@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 from useCases.DependencyGraph import DependencyGraph
 from useCases.DependencyGraph2 import DependencyGraph2
 from useCases.StateOfNodesDependencyGraph import StateOfNodesDependencyGraph
