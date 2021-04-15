@@ -64,11 +64,9 @@ def generateTracesFromFormula(formula, lengthOfTrace, minNumberOfAccepting, minN
 
         
     
-def misclassify(trace_file_name, misclassificationRate=0.05, outputfile = None):
+def misclassify(traces, misclassificationRate=0.05):
     #Takes a normal sample and misclassifies
 
-    traces = ExperimentTraces()
-    traces.readTracesFromFile(traces_file_name)
     allTraces = {"accepting": traces.acceptedTraces ,"rejecting": traces.rejectedTraces}
 
 
@@ -94,10 +92,7 @@ def misclassify(trace_file_name, misclassificationRate=0.05, outputfile = None):
         random.shuffle(allTraces["accepting"])
         random.shuffle(allTraces["rejecting"])
 
-    if outputfile==None:
-        outputfile = trace_file_name.replace('perfect', 'misclass-'+str(misclassificationRate*100))
 
-
-    new_traces = ExperimentTraces(tracesToAccept=allTraces["accepting"], tracesToReject=allTraces["rejecting"], depth = traces.depthOfFormula, possibleSolution = traces.formula)
-    new_traces.writeTracesToFile(outputfile)
+    new_traces = ExperimentTraces(tracesToAccept=allTraces["accepting"], tracesToReject=allTraces["rejecting"], depth = traces.depthOfSolution, possibleSolution = traces.possibleSolution)
+    return new_traces
 
