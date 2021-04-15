@@ -1,6 +1,7 @@
 import pdb
 from utils.SimpleTree import SimpleTree, Formula
 import io
+import contextlib
 
 
 def lineToTrace(line):
@@ -311,3 +312,12 @@ class ExperimentTraces:
     def readTracesFromFile(self, tracesFileName):
         with open(tracesFileName) as tracesFile:
             self.readTracesFromStream(tracesFile)
+
+def parseExperimentTraces(source):
+    if isinstance(source, str): cm = open(source, "r")
+    # else: cm = contextlib.nullcontext(source)
+    else: cm = contextlib.contextmanager(lambda: (yield source))()
+    with cm as f:
+        traces = ExperimentTraces()
+        traces.readTracesFromStream(f)
+        return traces
