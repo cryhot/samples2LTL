@@ -139,20 +139,22 @@ class ExperimentTraces:
         tracesToReject=None,
         operators=['G', 'F', '!', 'U', '&', '|', '->', 'X'],
         depth=None,
-        possibleSolution=None
+        possibleSolution=None,
+        numVariables=None,
     ):
         self.acceptedTraces = tracesToAccept if tracesToAccept is not None else []
         self.rejectedTraces = tracesToReject if tracesToReject is not None else []
+        self.numVariables = numVariables
         if tracesToAccept != None and tracesToAccept != None:
             self.maxLengthOfTraces = 0
             for trace in self.acceptedTraces + self.rejectedTraces:
                 if trace.lengthOfTrace > self.maxLengthOfTraces:
                     self.maxLengthOfTraces = trace.lengthOfTrace
-
-            try:
-                self.numVariables = self.acceptedTraces[0].numVariables
-            except:
-                self.numVariables = self.rejectedTraces[0].numVariables
+            if self.numVariables is None:
+                try:
+                    self.numVariables = self.acceptedTraces[0].numVariables
+                except:
+                    self.numVariables = self.rejectedTraces[0].numVariables
 
         self.operators = operators
         self.depthOfSolution = depth
@@ -177,9 +179,10 @@ class ExperimentTraces:
                 return False
         return True
 
-    def split(self, f):
-        """
-            :return: (accepted_traces, rejected_traces)
+    def split(self, filter):
+        """ Split the traces in two.
+            :param filter: function(trace:Trace, label:bool)->bool
+            :return: (filtered_true, filtered_false)
             :rtype: (ExperimentTraces, ExperimentTraces)
         """
         split = dict()
@@ -189,18 +192,66 @@ class ExperimentTraces:
         ]:
             split[label] = {True: [], False: [],}
             for trace in traces:
-                split[label][trace.evaluateFormulaOnTrace(f)].append(trace)
+                split[label][bool(filter(trace, label))].append(trace)
         ans = []
-        for evaluation in (True, False):
+        for value in (True, False):
             traces = __class__(
-                tracesToAccept=split[True][evaluation],
-                tracesToReject=split[False][evaluation],
+                numVariables=self.numVariables,
+                tracesToAccept=split[True][value],
+                tracesToReject=split[False][value],
                 operators=self.operators,
                 depth=self.depthOfSolution,
                 possibleSolution=self.possibleSolution,
             )
             ans.append(traces)
         return tuple(ans)
+
+
+    def splitEval(self, f):
+        """ Split the traces accordigly to evaluation.
+            :return: (accepted_traces, rejected_traces)
+            :rtype: (ExperimentTraces, ExperimentTraces)
+        """
+        return self.split(lambda t,l: t.evaluateFormulaOnTrace(f))
+    def splitCorrect(self, f):
+        """ Split the traces accordigly to correctness.
+            :return: (classified_traces, misclassified_traces)
+            :rtype: (ExperimentTraces, ExperimentTraces)
+        """
+        return self.split(lambda t,l: t.evaluateFormulaOnTrace(f)==l)
+
+    @property
+    def positive(self):
+        return __class__(
+            numVariables=self.numVariables,
+            tracesToAccept=self.acceptedTraces,
+            operators=self.operators,
+            depth=self.depthOfSolution,
+            possibleSolution=self.possibleSolution,
+        )
+    @property
+    def negative(self):
+        return __class__(
+            numVariables=self.numVariables,
+            tracesToAccept=self.rejectedTraces,
+            operators=self.operators,
+            depth=self.depthOfSolution,
+            possibleSolution=self.possibleSolution,
+        )
+    @property
+    def weight(self):
+        return sum(trace.weight for trace in self)
+
+    def get_score(self, f, score):
+        good, bad = self.splitCorrect(f)
+        if score == 'count':
+            return  good.weight / self.weight
+        elif score == 'ratio':
+            return 0.5 * good.positive.weight / self.positive.weight + 0.5 * good.negative.weight / self.negative.weight
+        else:
+            msg = f'score={score!r}'
+            raise NotImplementedError(msg)
+
 
     def __repr__(self):
         returnString = ""
@@ -219,7 +270,7 @@ class ExperimentTraces:
             self.writeTraces(stream)
             return stream.getvalue()
 
-    def writeTraces(self, tracesFileName=sys.stdout):
+    def writeTraces(self, tracesFileName=sys.stdout, only_traces=False):
         if isinstance(tracesFileName, str): cm = open(tracesFileName, "w")
         # else: cm = contextlib.nullcontext(tracesFileName)
         else: cm = contextlib.contextmanager(lambda: (yield tracesFileName))()
@@ -231,6 +282,7 @@ class ExperimentTraces:
             for rejTrace in self.rejectedTraces:
                 line = str(rejTrace) + "\n"
                 tracesFile.write(line)
+            if only_traces: return
             tracesFile.write("---\n")
             tracesFile.write(','.join(self.operators) + '\n')
             tracesFile.write("---\n")
@@ -299,8 +351,8 @@ class ExperimentTraces:
             self.rejectedTraces.append(trace)
 
     def readTracesFromString(self, s):
-        stream = io.StringIO(s)
-        self.readTracesFromStream(stream)
+        with io.StringIO(s) as stream:
+            self.readTracesFromStream(stream)
 
     def readTracesFromStream(self, stream):
 

@@ -12,14 +12,13 @@ from formulaBuilder.satQuerying import get_models
 def run_solver(*,
     q=None,
     encoder=DagSATEncoding,
-    maxNumOfFormulas,
     **solver_args,
 ):
     separate_process = q is not None
 
     t = TicToc()
     t.tic()
-    results = get_models(encoder=encoder, maxNumModels=maxNumOfFormulas, **solver_args)
+    results = get_models(encoder=encoder, **solver_args)
     time_passed = t.tocvalue()
 
     if separate_process == True:

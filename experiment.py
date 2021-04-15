@@ -25,30 +25,52 @@ def main():
         dest='testDtMethod', default=False,
         action='store_true',
     )
-    group_sat = parser.add_argument_group('sat method arguments')
-    group_sat.add_argument("--max_depth", metavar="N",
-        dest='maxDepth', default=8,
-        type=int,
+    parser.add_argument("--misclassification", metavar="R",
+        dest="misclassification", default=0,
+        type=float,
     )
-    group_sat.add_argument("--start_depth", metavar="N",
+
+    group_sat = parser.add_argument_group('sat method arguments')
+    group_sat.add_argument("--start_depth", metavar="I",
         dest='startDepth', default=1,
         type=int,
+        help="formula start at size I",
+    )
+    group_sat.add_argument("--max_depth", metavar="I",
+        dest='maxDepth', default=float("inf"),
+        type=int,
+        help="search for formula of size < I",
+    )
+    group_sat.add_argument("--iteration_step", metavar="I",
+        dest='iterationStep', default=1,
+        type=int,
+        help="increment formula size by I at each iteration",
+    )
+    group_maxsat = group_sat
+    group_maxsat.add_argument("--optimize_depth", metavar="I",
+        dest='optimizeDepth', default=float("inf"),
+        type=int,
+        help="use optimizer for formula size >= I",
+    )
+    group_maxsat.add_argument("--optimize", #metavar="SCORE",
+        dest='optimize', default='count',
+        choices=['count', 'ratio'],
+        help="score to optimize",
+    )
+    group_maxsat.add_argument("--min_score", metavar="S",
+        dest='minScore', default=0,
+        type=float,
+        help="formula should achieve a score > S",
     )
     group_sat.add_argument("--max_num_formulas", metavar="N",
         dest='numFormulas', default=1,
         type=int,
     )
-    group_sat.add_argument("--iteration_step", metavar="N",
-        dest='iterationStep', default=1,
-        type=int,
-    )
+
     group_dt = parser.add_argument_group('dt method arguments')
-    group_dt.add_argument("--misclassification", metavar="R",
-        dest="misclassification", default=0,
-        type=float,
-    )
+
     parser.add_argument("--timeout", metavar="T",
-        dest='timeout', default=600,
+        dest='timeout', default=float("inf"),
         type=int,
         help="timeout in seconds",
     )
@@ -77,22 +99,14 @@ def main():
     traces = parseExperimentTraces(args.tracesFileName)
     #print(traces)
 
-    # numFormulas   = args.numFormulas
-    # startDepth    = args.startDepth
-    # maxDepth      = args.maxDepth
-    # finalDepth    = args.maxDepth
-    # iterationStep = args.iterationStep
-
-    # solvingTimeout = args.timeout
-    # timeout = args.timeout
-
     if args.testSatMethod:
         formulas, timePassed = run_solver(
             traces=traces,
-            maxNumOfFormulas=args.numFormulas,
-            startValue=args.startDepth,
-            finalDepth=args.maxDepth,
-            step=args.iterationStep,
+            startDepth=args.startDepth, maxDepth=args.maxDepth, step=args.iterationStep,
+            optimizeDepth=args.optimizeDepth,
+            optimize=args.optimize, minScore=args.minScore,
+            maxNumModels=args.numFormulas,
+            timeout=args.timeout,
         )
         logging.info("formulas: "+str([f.prettyPrint(f) for f in formulas])+", timePassed: "+str(timePassed))
 
