@@ -5,8 +5,11 @@ from random import random
 import csv
 import os
 import glob
+from pprint import pprint
+import itertools
 import argparse
 from run_tests import subprocess_calls
+from utils import datas
 
 '''
 ******************For running multiple files using redis******************
@@ -37,42 +40,70 @@ In the main-function in queue-maker: Comment out m.populate_queue() and uncommen
 
 Run queuemaker again, with the same arguments as in the first step, to compile the results
 
-python queue_maker.py 
+python queue_maker.py
 
 '''
 
 class multiprocess:
 
-	def __init__(self, tracesFolderName, method, timeOut):
-		
+	def __init__(self, tracesFolderName, timeout, *, args=[], kwargs={}):
+
 		self.tracesFolderName = tracesFolderName
-		self.timeOut = timeOut
-		self.method = method
+		self.timeout = timeout
+		self.args = args
+		self.kwargs = kwargs
 		self.flieTracesFileList = []
 		for root, dirs, files in os.walk(self.tracesFolderName):
 			for file in files:
 				if file.endswith('.trace'):
 					flie_file_name = str(os.path.join(root, file))
 					self.flieTracesFileList.append(flie_file_name)
+		if self.tracesFolderName.endswith('.trace'):
+			self.flieTracesFileList.append(self.tracesFolderName)
 
-		
+
 
 	def populate_queue(self):
 		redis_conn= Redis()
 		q = Queue('samples2LTL', connection=redis_conn)
 		q.empty()
-		
-		for flieFile in self.flieTracesFileList:
 
-			q.enqueue(subprocess_calls, args=(flieFile,self.method \
-												),\
-						job_=self.timeOut, job_id=flieFile)
+		for args, kwargs in argproduct((self.flieTracesFileList, *self.args), self.kwargs):
+			tracesFileName = args[0]
+			id = (args, tuple(sorted(kwargs.items())))
+			id = datas.microhash(id)
+			job_id = f"{tracesFileName}.{id}"
+			# output_filename = f"{job_id}-out.csv"
 
+			if 1:
+				# print(output_filename)
+				q.enqueue(subprocess_calls,
+					args=(
+						# tracesFileName,
+						*args,
+					),
+					kwargs=dict(
+						# output_filename=output_filename,
+						**kwargs,
+					),
+					job_timeout=self.timeout,
+					job_id=job_id,
+				)
+			else:
+				subprocess_calls(
+					# tracesFileName,
+					*args,
+					# output_filename=output_filename,
+					**kwargs,
+				)
 
 		print('Length of queue', len(q))
 
-	
+
+
 	def compile_results(self):
+
+		raise NotImplementedError("code require change")
 
 		with open(self.tracesFolderName+'compiled.csv', 'w') as file1:
 			writer = csv.writer(file1)
@@ -84,9 +115,9 @@ class multiprocess:
 				for file in files:
 					if file.endswith('.csv'):
 						csvFileList.append(str(os.path.join(root, file)))
-									
+
 			csvFileList.remove(self.tracesFolderName+'compiled.csv')
-			
+
 			#Collating the results
 
 			for csvFileName in csvFileList:
@@ -96,7 +127,7 @@ class multiprocess:
 					tracesFileName = csvFileName.split('output')[0]
 
 					if row_list == []:
-						csvrow =[tracesFileName, self.timeOut, None, None]
+						csvrow =[tracesFileName, self.timeout, None, None]
 					else:
 						csvrow = row_list[0]#this file has not timed out
 
@@ -106,34 +137,172 @@ class multiprocess:
 
 
 
+def str2nums(string):
+	"""Returns a list of numbers from a string such as "1,5,10:20,100:200:10".
+	Ranges are standard in python (start included, stop excluded).
+	"""
+	ans = []
+	for sub in str(string).split(','):
+		bounds = sub.split(":", 2)
+		for i,n in enumerate(bounds):
+			try:
+				bounds[i] = int(n)
+			except ValueError:
+				bounds[i] = float(n)
+		if len(bounds) == 1:
+			ans.append(*bounds)
+		else:
+			ans.extend(numpy.arange(*bounds))
+	return ans
+
+def argproduct(args=[], kwargs={}):
+	"""Like itertools.product but for arguments.
+	:return: (args, kwargs) pairs generator
+	"""
+	argslist = list(args)
+	kwi = len(argslist)
+	keys, kwargslist = zip(*kwargs.items())
+	argslist.extend(kwargslist)
+	argslist = [
+		tuple(arglist) if hasattr(arglist, '__iter__') and not isinstance(arglist, (str,bytes)) else (arglist,)
+		for arglist in argslist
+	]
+	return (
+		(args[:kwi], dict(zip(keys, args[kwi:])))
+		for args in itertools.product(*argslist)
+	)
+
 
 def main():
-	parser = argparse.ArgumentParser()
+	parser = argparse.ArgumentParser(
+		epilog= """
+			note: certain argument can take multiple value at the same time.
+			Certain parameters can even accept ranges of values (start:stop[:step]).
+			For example, you can specify:
+			--min_score .5:.7:.025 --min_score .7,.8,.95
+			If multiple parameters are multivalued, the cartesian product is made.
+			""",
+	)
 
-	parser.add_argument('--traces_folder', dest='traces_folder', default = 'few_traces/')
-	parser.add_argument('--timeout', dest='timeout', default = 900)
-	parser.add_argument('--test_sat_method', dest='test_sat_method', action='store_true', default = True)
-	parser.add_argument('--test_dt_method', dest='test_dt_method', action='store_true', default = False)
-	parser.add_argument('-c', dest='compile_results', action='store_true', default=False)
+	parser.add_argument('-c', '--compile', dest='compile', action='store_true', help="compile results (default: populate queue)")
+	parser.add_argument("--traces_folder",
+	    dest='traces_folder',
+	    default="traces/dummy.trace",
+		help="trace folder or single trace to run",
+	)
+	parser.add_argument("--timeout", metavar="T",
+	    dest='timeout', default=float("inf"),
+	    type=int,
+	    help="timeout in seconds",
+	)
+	group_method = parser.add_mutually_exclusive_group(required=True)
+	group_method.add_argument("--test",
+	    dest='method',
+	    choices=subprocess_calls.keys.keys(),
+	)
+	group_method.add_argument("--test_sat_method",
+	    dest='method',
+	    const='SAT', action='store_const',
+		help='Ivan base algo',
+	)
+	group_method.add_argument("--test_maxsat_method",
+	    dest='method',
+	    const='MaxSAT', action='store_const',
+		help='ATVA base algo',
+	)
+	group_method.add_argument("--test_sat_dt_method",
+	    dest='method',
+	    const='SAT-DT', action='store_const',
+		help='Ivan base Decision tree,',
+	)
+	group_method.add_argument("--test_maxsat_dt_method",
+	    dest='method',
+	    const='MaxSAT-DT', action='store_const',
+		help='ATVA Decision tree',
+	)
+	parser.add_argument("--misclassification", metavar="R",
+	    dest="misclassification", default=0,
+	    type=float,
+	)
+
+	group_sat = parser.add_argument_group('sat/maxsat method arguments')
+	group_sat.add_argument("--start_depth", metavar="I",
+	    dest='startDepth', default=1,
+	    type=int,
+	    help="formula start at size I",
+	)
+	group_sat.add_argument("--max_depth", metavar="I",
+	    dest='maxDepth', default=float("inf"),
+	    type=int,
+	    help="search for formula of size < I",
+	)
+	group_sat.add_argument("--iteration_step", metavar="I",
+	    dest='step', default=1,
+	    type=int,
+	    help="increment formula size by I at each iteration",
+	)
+	group_maxsat = group_sat
+	group_maxsat.add_argument("--optimize_depth", metavar="I",
+	    dest='optimizeDepth',
+	    type=int, action='append',
+	    help="use optimizer for formula size >= I",
+	)
+	group_maxsat.add_argument("--optimize", #metavar="SCORE",
+	    dest='optimize',
+	    choices=['count', 'ratio'], action='append',
+	    help="score to optimize",
+	)
+	group_maxsat.add_argument("--min_score", metavar="S",
+	    dest='minScore', default=0,
+	    type=float, action='append',
+	    help="formula should achieve a score > S",
+	)
+	# group_sat.add_argument("--max_num_formulas", metavar="N",
+	#     dest='numFormulas', default=1,
+	#     type=int,
+	# )
+
+	group_dt = parser.add_argument_group('dt method arguments')
+	# parser.add_argument("--log", metavar="LVL",
+	#     dest='loglevel', default="INFO",
+	#     # choices="DEBUG, INFO, WARNING, ERROR, CRITICAL".split(", "),
+	#     help="log level, usually in DEBUG, INFO, WARNING, ERROR, CRITICAL",
+	# )
 
 
 	args,unknown = parser.parse_known_args()
 
-	#print(dict(args))
+	if not args.optimizeDepth: args.optimizeDepth=[1 if 'MaxSAT' in args.method else float("inf")]
+	if not args.optimize: args.optimize=['count']
+	if not args.minScore: args.minScore=[0]
 
-	tracesFolderName = args.traces_folder
-	timeout = int(args.timeout)
-	compile_results = bool(args.compile_results)
-	method = 'SAT' if bool(args.test_sat_method) else 'DT'
+	# flattens lists
+	for key in {'optimizeDepth', 'minScore'}:
+		setattr(args, key, list(itertools.chain.from_iterable(str2nums(m) for m in getattr(args, key))))
 
-	m = multiprocess(tracesFolderName, method, timeout)
 
-	if not compile_results:
-		m.populate_queue()#comment this out for compiling results
+	m = multiprocess(
+		tracesFolderName=args.traces_folder,
+		timeout=min(args.timeout+60*5,1e10),
+		args=[
+			args.method,
+		],
+		kwargs=dict(
+			timeout=args.timeout,
+			**{
+				key: getattr(args, key)
+				for key in subprocess_calls.keys[args.method]
+				if hasattr(args, key)
+			},
+		),
+	)
+
+	if args.compile:
+		m.compile_results()
 	else:
-		m.compile_results()#uncomment this for compiling results
+		m.populate_queue()
 
 
 
 if __name__ == '__main__':
-    main() 
+    main()

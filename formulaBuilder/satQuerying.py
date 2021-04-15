@@ -52,7 +52,7 @@ def get_models(
             fg.encodeFormula(optimize=(optimize if i>=optimizeDepth else None))
         else:
             if fg.optimize:
-                logging.info(f"found formula {formula.prettyPrint()}"+(str(fg.optimize) and f" ({fg.optimize}={score})"))
+                logging.info(f"found formula {formula.prettyPrint()}"+(f" ({fg.optimize}={score})" if fg.optimize else ""))
             else:
                 logging.info(f"found formula {formula.prettyPrint()}")
             #print(f"found formula {formula}")

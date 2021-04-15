@@ -153,9 +153,8 @@ class DagSATEncoding:
 
     def set_timeout(self, timeout):
         if timeout is None: timeout=float("inf")
-        timeout *= 1000 # in milliseconds
-        if timeout > sys.maxsize: timeout = sys.maxsize
-        self.solver.set(timeout=int(timeout))
+        timeout = int(min(timeout*1000, sys.maxsize)) # in milliseconds
+        self.solver.set(timeout=timeout)
         return timeout/1000
 
 
