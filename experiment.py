@@ -42,6 +42,11 @@ def main():
         dest='iterationStep', default=1,
         type=int,
     )
+    group_dt = parser.add_argument_group('dt method arguments')
+    group_dt.add_argument("--misclassification", metavar="R",
+        dest="misclassification", default=0,
+        type=float,
+    )
     parser.add_argument("--timeout", metavar="T",
         dest='timeout', default=600,
         type=int,
@@ -96,6 +101,7 @@ def main():
 
         timePassed, numAtoms, numPrimitives = run_dt_solver(
             traces=traces,
+            misclassification=args.misclassification,
         )
         logging.info(f"timePassed: {timePassed}, numAtoms: {numAtoms}, numPrimitives: {numPrimitives}")
 

@@ -39,6 +39,7 @@ def run_dt_solver(
     restartsOfSampling=config.DT_RESTARTS_OF_SAMPLING,
     q=None,
     encoder=DagSATEncoding,
+    misclassification=0,
 ):
 
     #try:
@@ -54,7 +55,9 @@ def run_dt_solver(
         t.tic()
         (atoms, atomTraceEvaluation) = ab.buildAtoms(sizeOfPSubset=subsetSize, strategy = samplingStrategy, sizeOfNSubset=subsetSize, probabilityDecreaseRate=decreaseRate,\
                       numRepetitionsInsideSampling=repetitionsInsideSampling, numRestartsOfSampling = restartsOfSampling)
-        fb = DTFormulaBuilder(features = ab.atoms, data = ab.getMatrixRepresentation(), labels = ab.getLabels())
+
+        print(ab.atoms, ab.getMatrixRepresentation())
+        fb = DTFormulaBuilder(features = ab.atoms, data = ab.getMatrixRepresentation(), labels = ab.getLabels(), stoppingVal=misclassification)
         fb.createASeparatingFormula()
         timePassed = t.tocvalue()
         atomsFile = "atoms.txt"
