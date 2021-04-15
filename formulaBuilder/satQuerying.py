@@ -25,6 +25,7 @@ def get_models(
     i = startDepth
     fg = encoder(i, traces)
     fg.encodeFormula(optimize=(optimize if i>=optimizeDepth else None))
+
     while len(results) < maxNumModels and i < maxDepth:
         if fg.set_timeout(timeout-tictoc_total.tocvalue()) <= 0: break
         tictoc_z3.tic()
@@ -50,7 +51,10 @@ def get_models(
             fg = encoder(i, traces)
             fg.encodeFormula(optimize=(optimize if i>=optimizeDepth else None))
         else:
-            logging.info(f"found formula {formula.prettyPrint()}"+(fg.optimize and f" ({fg.optimize}={score})"))
+            if fg.optimize:
+                logging.info(f"found formula {formula.prettyPrint()}"+(str(fg.optimize) and f" ({fg.optimize}={score})"))
+            else:
+                logging.info(f"found formula {formula.prettyPrint()}")
             #print(f"found formula {formula}")
             formula = Formula.normalize(formula)
             logging.info(f"normalized formula {formula}")
