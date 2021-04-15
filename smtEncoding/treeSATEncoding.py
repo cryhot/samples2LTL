@@ -27,7 +27,7 @@ class TreeSATEncoding:
         self.formulaDepth = D
         
         
-        #traces = [t.traceVector for t in testTraces.acceptedTraces + testTraces.rejectedTraces]
+        #traces = [t.traceVector for t in testTraces]
         
         self.traces = testTraces
 

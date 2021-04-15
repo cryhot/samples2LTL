@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import os
 import pdb
 import argparse
@@ -27,7 +29,7 @@ def generateFromFormulaFile(files, outputFolder, equalNumber, traceLengths, repe
 
                             testName = outputFolder+patternName+'/'+"{:04}.trace".format(counter)
                             if len(generatedTraces.acceptedTraces) > 0 and len(generatedTraces.rejectedTraces) > 0:
-                                generatedTraces.writeTracesToFile(testName)
+                                generatedTraces.writeTraces(testName)
                                 counter += 1
                                 num+=1
 

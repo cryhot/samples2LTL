@@ -17,7 +17,7 @@ def test_next_and_future():
         traces.readTracesFromFile(testFileName)
         
         
-        for trace in traces.acceptedTraces + traces.rejectedTraces:
+        for trace in traces:
             print("trace: \n%s" % repr(trace))
             for currentPos in range(trace.lengthOfTrace):
                 

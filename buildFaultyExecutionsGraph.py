@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 from useCases.DependencyGraph import DependencyGraph
 from useCases.DependencyGraph2 import DependencyGraph2
 from useCases.StateOfNodesDependencyGraph import StateOfNodesDependencyGraph
@@ -91,5 +93,5 @@ if __name__ == "__main__":
             print("problem2!")
             pdb.set_trace()
     fileToWrite = args.tracesFileName
-    experimentTraces.writeTracesToFile(fileToWrite)
+    experimentTraces.writeTraces(fileToWrite)
 

@@ -9,15 +9,16 @@ from formulaBuilder.DTFormulaBuilder import DTFormulaBuilder
 from formulaBuilder.AtomBuilder import AtomBuilder, AtomBuildingStrategy
 from formulaBuilder.satQuerying import get_models
 
-def run_solver(finalDepth, traces, maxNumOfFormulas = 1, startValue=1, step=1, q = None, encoder=DagSATEncoding):
-    if q is not None:
-        separate_process = True
-    else:
-        separate_process = False
+def run_solver(*,
+    q=None,
+    encoder=DagSATEncoding,
+    **solver_args,
+):
+    separate_process = q is not None
 
     t = TicToc()
     t.tic()
-    results = get_models(finalDepth, traces, startValue, step, encoder, maxNumOfFormulas)
+    results = get_models(encoder=encoder, **solver_args)
     time_passed = t.tocvalue()
 
     if separate_process == True:
@@ -27,15 +28,22 @@ def run_solver(finalDepth, traces, maxNumOfFormulas = 1, startValue=1, step=1, q
 
 
 
-def run_dt_solver(traces, subsetSize=config.DT_SUBSET_SIZE, txtFile="treeRepresentation.txt", strategy=config.DT_SAMPLING_STRATEGY, decreaseRate=config.DT_DECREASE_RATE,\
-                  repetitionsInsideSampling=config.DT_REPETITIONS_INSIDE_SAMPLING, restartsOfSampling=config.DT_RESTARTS_OF_SAMPLING, q = None, encoder=DagSATEncoding, \
-                  misclassification=0):
+def run_dt_solver(
+    traces,
+    subsetSize=config.DT_SUBSET_SIZE,
+    txtFile="treeRepresentation.txt",
+    strategy=config.DT_SAMPLING_STRATEGY,
+    decreaseRate=config.DT_DECREASE_RATE,
+    repetitionsInsideSampling=config.DT_REPETITIONS_INSIDE_SAMPLING,
+    restartsOfSampling=config.DT_RESTARTS_OF_SAMPLING,
+    q=None,
+    encoder=DagSATEncoding,
+    misclassification=0,
+):
+
     #try:
         config.encoder = encoder
-        if q != None:
-            separateProcess = True
-        else:
-            separateProcess = False
+        separate_process = q is not None
         ab = AtomBuilder()
         ab.getExamplesFromTraces(traces)
         #samplingStrategy = config.DT_SAMPLING_STRATEGY
@@ -54,12 +62,12 @@ def run_dt_solver(traces, subsetSize=config.DT_SUBSET_SIZE, txtFile="treeReprese
         atomsFile = "atoms.txt"
         treeTxtFile = txtFile
         ab.writeAtomsIntoFile(atomsFile)
-        
-        
+
+
         numberOfUsedPrimitives = fb.numberOfNodes()
         fb.tree_to_text_file(treeTxtFile)
     #    return (timePassed, len(atoms), numberOfUsedPrimitives)
-        if separateProcess == True:
+        if separateProcess:
             q.put([timePassed, len(atoms), numberOfUsedPrimitives])
         else:
             return [timePassed, len(atoms), numberOfUsedPrimitives]
