@@ -93,5 +93,5 @@ if __name__ == "__main__":
             print("problem2!")
             pdb.set_trace()
     fileToWrite = args.tracesFileName
-    experimentTraces.writeTracesToFile(fileToWrite)
+    experimentTraces.writeTraces(fileToWrite)
 

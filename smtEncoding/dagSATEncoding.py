@@ -38,7 +38,7 @@ class DagSATEncoding:
         self.formulaDepth = D
 
 
-        #traces = [t.traceVector for t in testTraces.acceptedTraces + testTraces.rejectedTraces]
+        #traces = [t.traceVector for t in testTraces]
 
         self.traces = testTraces
 
@@ -88,7 +88,7 @@ class DagSATEncoding:
         self.y = {
             (i, traceIdx, positionInTrace): Bool(f'y_{i}_{traceIdx}_{positionInTrace}')
             for i in range(self.formulaDepth)
-            for traceIdx, trace in enumerate(self.traces.acceptedTraces + self.traces.rejectedTraces)
+            for traceIdx, trace in enumerate(self.traces)
             for positionInTrace in range(trace.lengthOfTrace)
         }
 
@@ -118,7 +118,7 @@ class DagSATEncoding:
                 Not(self.y[(self.formulaDepth - 1, traceIdx, 0)])
                 for traceIdx in range(
                     len(self.traces.acceptedTraces),
-                    len(self.traces.acceptedTraces+self.traces.rejectedTraces)
+                    len(self.traces)
                 )
             ]),
             'rejecting traces should be rejected'
@@ -316,7 +316,7 @@ class DagSATEncoding:
 
     def operatorsSemantics(self):
 
-        for traceIdx, tr in enumerate(self.traces.acceptedTraces + self.traces.rejectedTraces):
+        for traceIdx, tr in enumerate(self.traces):
             for i in range(1, self.formulaDepth):
 
                 if '|' in self.listOfOperators:

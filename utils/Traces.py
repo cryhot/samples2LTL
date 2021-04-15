@@ -1,28 +1,37 @@
+import sys
 import pdb
 from utils.SimpleTree import SimpleTree, Formula
 import io
+import re
+import itertools
 import contextlib
 
 
 def lineToTrace(line):
-    lassoStart = None
+    line = line.strip()
+    kwargs = dict()
+    suffix = ''
     try:
-        traceData, lassoStart = line.split('::')
-    except:
+        traceData, suffix = line.split('::')
+    except ValueError:
         traceData = line
+    match = re.fullmatch(r'(?P<lassoStart>-?\d+)?(?:\[(?P<weight>)\d+])?', suffix)
+    if match.group('lassoStart') is not None: kwargs['lassoStart'] = int(match.group('lassoStart'))
+    if match.group('weight') is not None: kwargs['weight'] = int(match.group('weight'))
     traceVector = [[bool(int(varValue)) for varValue in varsInTimestep.split(',')] for varsInTimestep in
                    traceData.split(';')]
-    trace = Trace(traceVector, lassoStart)
+    trace = Trace(traceVector, **kwargs)
     return trace
 
 
 class Trace:
-    def __init__(self, traceVector, lassoStart=None, intendedEvaluation=None, literals=None):
+    def __init__(self, traceVector, lassoStart=None, intendedEvaluation=None, literals=None, weight=1):
 
         self.lengthOfTrace = len(traceVector)
         self.intendedEvaluation = intendedEvaluation
-        if lassoStart not in (None, ""):
+        if lassoStart is not None:
             self.lassoStart = int(lassoStart)
+            if self.lassoStart < 0: self.lassoStart += self.lengthOfTrace
             if self.lassoStart >= self.lengthOfTrace:
                 pdb.set_trace()
                 raise Exception(
@@ -38,14 +47,18 @@ class Trace:
             self.literals = ["x" + str(i) for i in range(self.numVariables)]
         else:
             self.literals = literals
+        self.weight = weight
 
     def __repr__(self):
         return repr(self.traceVector) + "\n" + repr(self.lassoStart) + "\n\n"
 
     def __str__(self):
-        s = ';'.join(','.join(str(k) for k in t) for t in self.traceVector)
-        if self.lassoStart is not None: s += "::" + str(self.lassoStart)
-        return s
+        sequence = ';'.join(','.join(f'{int(k)}' for k in t) for t in self.traceVector)
+        suffix = ''
+        if self.lassoStart is not None: suffix = f'{suffix}{self.lassoStart}'
+        if self.weight is not None and self.weight != 1: suffix = f'{suffix}[{self.weight}]'
+        if suffix: sequence = f"{sequence}::{suffix}"
+        return sequence
 
     def nextPos(self, currentPos):
         if currentPos is None:
@@ -121,18 +134,15 @@ defaultOperators = ['G', 'F', '!', 'U', '&', '|', '->', 'X']
 
 
 class ExperimentTraces:
-    def __init__(self, tracesToAccept=None, tracesToReject=None, operators=['G', 'F', '!', 'U', '&', '|', '->', 'X'],
-                 depth=None, possibleSolution=None):
-        if tracesToAccept != None:
-            self.acceptedTraces = tracesToAccept
-
-        else:
-            self.acceptedTraces = []
-
-        if tracesToReject != None:
-            self.rejectedTraces = tracesToReject
-        else:
-            self.rejectedTraces = []
+    def __init__(self, *,
+        tracesToAccept=None,
+        tracesToReject=None,
+        operators=['G', 'F', '!', 'U', '&', '|', '->', 'X'],
+        depth=None,
+        possibleSolution=None
+    ):
+        self.acceptedTraces = tracesToAccept if tracesToAccept is not None else []
+        self.rejectedTraces = tracesToReject if tracesToReject is not None else []
         if tracesToAccept != None and tracesToAccept != None:
             self.maxLengthOfTraces = 0
             for trace in self.acceptedTraces + self.rejectedTraces:
@@ -148,19 +158,49 @@ class ExperimentTraces:
         self.depthOfSolution = depth
         self.possibleSolution = possibleSolution
 
+    def __len__(self):
+        return len(self.acceptedTraces) + len(self.rejectedTraces)
+
+    def __iter__(self):
+        return itertools.chain(self.acceptedTraces, self.rejectedTraces)
+
     def isFormulaConsistent(self, f):
 
         # not checking consistency in the case that traces are contradictory
         if f == None:
             return True
         for accTrace in self.acceptedTraces:
-            if accTrace.evaluateFormulaOnTrace(f) == False:
+            if not accTrace.evaluateFormulaOnTrace(f):
                 return False
-
         for rejTrace in self.rejectedTraces:
-            if rejTrace.evaluateFormulaOnTrace(f) == True:
+            if not rejTrace.evaluateFormulaOnTrace(f):
                 return False
         return True
+
+    def split(self, f):
+        """
+            :return: (accepted_traces, rejected_traces)
+            :rtype: (ExperimentTraces, ExperimentTraces)
+        """
+        split = dict()
+        for label, traces in [
+            (True,  self.acceptedTraces),
+            (False, self.rejectedTraces),
+        ]:
+            split[label] = {True: [], False: [],}
+            for trace in traces:
+                split[label][trace.evaluateFormulaOnTrace(f)].append(trace)
+        ans = []
+        for evaluation in (True, False):
+            traces = __class__(
+                tracesToAccept=split[True][evaluation],
+                tracesToReject=split[False][evaluation],
+                operators=self.operators,
+                depth=self.depthOfSolution,
+                possibleSolution=self.possibleSolution,
+            )
+            ans.append(traces)
+        return tuple(ans)
 
     def __repr__(self):
         returnString = ""
@@ -174,8 +214,16 @@ class ExperimentTraces:
         returnString += "depth of solution: " + repr(self.depthOfSolution) + "\n"
         return returnString
 
-    def writeTracesToFile(self, tracesFileName):
-        with open(tracesFileName, "w") as tracesFile:
+    def __str__(self):
+        with io.StringIO() as stream:
+            self.writeTraces(stream)
+            return stream.getvalue()
+
+    def writeTraces(self, tracesFileName=sys.stdout):
+        if isinstance(tracesFileName, str): cm = open(tracesFileName, "w")
+        # else: cm = contextlib.nullcontext(tracesFileName)
+        else: cm = contextlib.contextmanager(lambda: (yield tracesFileName))()
+        with cm as tracesFile:
             for accTrace in self.acceptedTraces:
                 line = str(accTrace) + "\n"
                 tracesFile.write(line)
