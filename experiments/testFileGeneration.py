@@ -7,15 +7,15 @@ from utils.Traces import Trace, ExperimentTraces
 operatorsAndArities = {'G':1, 'F':1, '!':1, 'U':2, '&':2,'|':2, '->':2, 'X':1, 'prop':0}
 
 def generateTracesFromFormula(formula, lengthOfTrace, minNumberOfAccepting, minNumberOfRejecting, totalMax = 20, numSuperfluousVars=1, generateExactNumberOfTraces=True,
-    finiteTraces=False, misclassificationRate=0.05,
+    finiteTraces=True, misclassificationRate=0.05,
 ):
     allVars = formula.getAllVariables()
     allTraces = {"accepting":[], "rejecting":[]}
     numberOfVars = len(allVars) + numSuperfluousVars
     depthOfFormula = formula.getDepth()
     totalNumberOfTrials = 0
-    random.seed(
-)    
+    random.seed()
+
     while (len(allTraces["accepting"]) < minNumberOfAccepting or len(allTraces["rejecting"]) < minNumberOfRejecting)\
     and len(allTraces["accepting"]) + len(allTraces["rejecting"]) < totalMax: 
         
@@ -40,18 +40,20 @@ def generateTracesFromFormula(formula, lengthOfTrace, minNumberOfAccepting, minN
     if misclassificationRate>0:
         #randomly select some examples
         numTraces = len(allTraces["accepting"])+len(allTraces["rejecting"])
+        
         numSwaps = max(1, int(numTraces*misclassificationRate))
 
-        numFalseNeg = min(len(allTraces["accepting"]), random.randint(1, numSwaps))
-        numFalsePos = random.randint(1, numSwaps)
+        numFalseNeg = min(len(allTraces["accepting"]), random.randint(1, numSwaps))#at least 1 gets swapped
+        numFalsePos = max(1, numSwaps - numFalseNeg) #at least 1 gets swapped
 
 
         falseNeg = allTraces["accepting"][-numFalseNeg:]
         falsePos = allTraces["rejecting"][-numFalsePos:]
 
+
         allTraces = {
-            "accepting": allTraces["accepting"][:numFalseNeg] + falsePos,
-            "rejecting": allTraces["rejecting"][:numFalsePos] + falseNeg,
+            "accepting": allTraces["accepting"][:-numFalseNeg] + falsePos,
+            "rejecting": allTraces["rejecting"][:-numFalsePos] + falseNeg,
         }
 
         random.shuffle(allTraces["accepting"])
@@ -62,5 +64,40 @@ def generateTracesFromFormula(formula, lengthOfTrace, minNumberOfAccepting, minN
 
         
     
-    
+def misclassify(trace_file_name, misclassificationRate=0.05, outputfile = None):
+    #Takes a normal sample and misclassifies
+
+    traces = ExperimentTraces()
+    traces.readTracesFromFile(traces_file_name)
+    allTraces = {"accepting": traces.acceptedTraces ,"rejecting": traces.rejectedTraces}
+
+
+    if misclassificationRate>0:
+        #randomly select some examples
+        numTraces = len(allTraces["accepting"])+len(allTraces["rejecting"])
+        
+        numSwaps = max(1, int(numTraces*misclassificationRate))
+
+        numFalseNeg = min(len(allTraces["accepting"]), random.randint(1, numSwaps))#at least 1 gets swapped
+        numFalsePos = max(1, numSwaps - numFalseNeg) #at least 1 gets swapped
+
+
+        falseNeg = allTraces["accepting"][-numFalseNeg:]
+        falsePos = allTraces["rejecting"][-numFalsePos:]
+
+
+        allTraces = {
+            "accepting": allTraces["accepting"][:-numFalseNeg] + falsePos,
+            "rejecting": allTraces["rejecting"][:-numFalsePos] + falseNeg,
+        }
+
+        random.shuffle(allTraces["accepting"])
+        random.shuffle(allTraces["rejecting"])
+
+    if outputfile==None:
+        outputfile = trace_file_name.replace('perfect', 'misclass-'+str(misclassificationRate*100))
+
+
+    new_traces = ExperimentTraces(tracesToAccept=allTraces["accepting"], tracesToReject=allTraces["rejecting"], depth = traces.depthOfFormula, possibleSolution = traces.formula)
+    new_traces.writeTracesToFile(outputfile)
 
