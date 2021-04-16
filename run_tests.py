@@ -7,6 +7,7 @@ from pprint import pprint
 import shutil
 import subprocess
 import argparse
+import functools, itertools, operator
 from utils.Traces import Trace, ExperimentTraces, parseExperimentTraces
 from solverRuns import run_solver, run_dt_solver
 
@@ -15,6 +16,7 @@ from utils import datas
 def subprocess_calls(
 	traces_filename,
 	method='SAT',
+	outputfile=os.path.join("{tracesdir}", "{tracesname}{ext}"),
 	**solver_args,
 ):
 	traces = parseExperimentTraces(traces_filename)
@@ -70,16 +72,29 @@ def subprocess_calls(
 		# df = pandas.DataFrame([datas.json_flatten(record)]*5)
 		# pprint(df)
 
-		id = tuple(sorted(datas.json_flatten(record['algo']).items()))
-		output_json_name = f"{traces_filename.rstrip('.trace')}.{record['algo']['name']}-{datas.microhash(id)}.out.json"
-		with open(output_json_name, 'w') as f:
+		outputfile = outputfile.format(**{key:getval(record) for key,getval in subprocess_calls.fileformatstrings.items()})
+		os.makedirs(os.path.realpath(os.path.dirname(traces_filename)), exist_ok=True)
+		with open(outputfile, 'w') as f:
 			json.dump(record, f)
 
-subprocess_calls.keys = dict()
-subprocess_calls.keys['SAT'] = {'startDepth','maxDepth','step'}
-subprocess_calls.keys['MaxSAT'] = subprocess_calls.keys['SAT']|{'optimizeDepth','optimize','minScore'}
-subprocess_calls.keys['SAT-DT'] = set()
-subprocess_calls.keys['MaxSAT-DT'] = set()
+subprocess_calls.methods = methods = {'SAT','MaxSAT','SAT-DT','MaxSAT-DT'}
+subprocess_calls.keys = keys = dict()
+keys['*'] = {'timeout'}
+keys['SAT'] = keys['*']|{'startDepth','maxDepth','step'}
+keys['MaxSAT'] = keys['SAT']|{'optimizeDepth','optimize','minScore'}
+keys['SAT-DT'] = keys['*']|set()
+keys['MaxSAT-DT'] = keys['*']|set()
+# keys['?']=functools.reduce(operator.or_, keys.values(), set())
+subprocess_calls.fileformatstrings = {
+	'method':     (lambda record: record['algo']['name']),
+	'argshash':   (lambda record: datas.microhash(tuple(sorted(datas.json_flatten(record['algo']).items())))),
+	'ext':        (lambda record: '.json'),
+	'tracesdir':  (lambda record: os.path.realpath(os.path.dirname(record["traces"]["filename"]))),
+	'tracesname': (lambda record: os.path.splitext(os.path.basename(record["traces"]["filename"]))[0]),
+	'tracesext':  (lambda record: os.path.splitext(os.path.basename(record["traces"]["filename"]))[1]),
+}
+for key in functools.reduce(operator.or_, subprocess_calls.keys.values(), set()):
+	subprocess_calls.fileformatstrings[f'{key}'] = (lambda record: record['algo']['args'].get(key))
 
 '''
 #function for invoking samples2LTL: Ivan's tool

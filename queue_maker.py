@@ -172,33 +172,63 @@ def argproduct(args=[], kwargs={}):
 		for args in itertools.product(*argslist)
 	)
 
+def get_parser(parser=None):
 
-def main():
-	parser = argparse.ArgumentParser(
-		epilog= """
-			note: certain argument can take multiple value at the same time.
-			Certain parameters can even accept ranges of values (start:stop[:step]).
-			For example, you can specify:
-			--min_score .5:.7:.025 --min_score .7,.8,.95
-			If multiple parameters are multivalued, the cartesian product is made.
-			""",
+	if parser is None:
+		parser = argparse.ArgumentParser()
+
+	if parser.epilog is None:
+		parser.epilog = ""
+	parser.epilog += """
+		note: certain argument can take multiple value at the same time.
+		Certain parameters can even accept ranges of values (start:stop[:step]).
+		For example, you can specify:
+		--min_score .5:.7:.025 --min_score .7,.8,.95
+		If multiple parameters are multivalued, the cartesian product is made.
+	"""
+
+	group_multiproc = parser.add_argument_group('multiprocessing arguments')
+	group_multiproc.add_argument('-c', '--compile',
+		dest='compile',
+		action='store_true',
+		help="compile results (default: populate queue)",
 	)
-
-	parser.add_argument('-c', '--compile', dest='compile', action='store_true', help="compile results (default: populate queue)")
-	parser.add_argument("--traces_folder",
+	group_multiproc.add_argument("-f", "--traces_folder",
 	    dest='traces_folder',
 	    default="traces/dummy.trace",
-		help="trace folder or single trace to run",
+		help="trace file/folder to run",
 	)
-	parser.add_argument("--timeout", metavar="T",
+	group_multiproc.add_argument("-T", "--timeout", metavar="T",
 	    dest='timeout', default=float("inf"),
 	    type=int,
 	    help="timeout in seconds",
 	)
+	group_multiproc.add_argument("--shutdown-timeout", metavar="T",
+	    dest='shutdownTimeout', default=60*5,
+	    type=int,
+	    help="additionnal time given to the process to shut itself down before killing it (default: 5 minutes)",
+	)
+	fileformatstrings = list("{%s}" % (key,) for key in subprocess_calls.fileformatstrings)
+	group_multiproc.add_argument("--output-folder-format", metavar="DIRNAME",
+	    dest='output_dirname',
+	    default="{tracesdir}",
+		help=f"""Output folder (default is where the trace is).
+			Can contain such formats: {', '.join(fileformatstrings)}.
+		""",
+	)
+	group_multiproc.add_argument("--output-file-format", metavar="BASENAME",
+	    dest='output_basename',
+	    # default="{tracesname}.{method}{ext}",
+	    default="{tracesname}.{method}-{argshash}.out{ext}",
+		help=f"""
+			Possible formats are {', '.join(fileformatstrings)}.
+		""",
+	)
+
 	group_method = parser.add_mutually_exclusive_group(required=True)
 	group_method.add_argument("--test",
 	    dest='method',
-	    choices=subprocess_calls.keys.keys(),
+	    choices=subprocess_calls.methods,
 	)
 	group_method.add_argument("--test_sat_method",
 	    dest='method',
@@ -220,6 +250,7 @@ def main():
 	    const='MaxSAT-DT', action='store_const',
 		help='ATVA Decision tree',
 	)
+
 	parser.add_argument("--misclassification", metavar="R",
 	    dest="misclassification", default=0,
 	    type=float,
@@ -263,12 +294,18 @@ def main():
 	# )
 
 	group_dt = parser.add_argument_group('dt method arguments')
+
 	# parser.add_argument("--log", metavar="LVL",
 	#     dest='loglevel', default="INFO",
 	#     # choices="DEBUG, INFO, WARNING, ERROR, CRITICAL".split(", "),
 	#     help="log level, usually in DEBUG, INFO, WARNING, ERROR, CRITICAL",
 	# )
 
+	return parser
+
+def main():
+
+	parser = get_parser()
 
 	args,unknown = parser.parse_known_args()
 
@@ -283,12 +320,12 @@ def main():
 
 	m = multiprocess(
 		tracesFolderName=args.traces_folder,
-		timeout=min(args.timeout+60*5,1e10),
+		timeout=min(args.timeout+args.shutdownTimeout, 1e10),
 		args=[
 			args.method,
 		],
 		kwargs=dict(
-			timeout=args.timeout,
+			outputfile=os.path.join(args.output_dirname, args.output_basename),
 			**{
 				key: getattr(args, key)
 				for key in subprocess_calls.keys[args.method]
