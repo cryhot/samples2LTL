@@ -1,6 +1,6 @@
 import sys
 import pdb
-from utils.SimpleTree import SimpleTree, Formula
+from utils.SimpleTree import SimpleTree, Formula, DecisionTreeFormula
 import io
 import re
 import itertools
@@ -84,17 +84,32 @@ class Trace:
 
     def evaluateFormulaOnTrace(self, formula):
 
-        nodes = list(set(formula.getAllNodes()))
-        self.truthAssignmentTable = {node: [None for _ in range(self.lengthOfTrace)] for node in nodes}
+        if isinstance(formula, Formula):
 
-        for i in range(self.numVariables):
-            literalFormula = Formula(self.literals[i])
+            nodes = list(set(formula.getAllNodes()))
+            self.truthAssignmentTable = {node: [None for _ in range(self.lengthOfTrace)] for node in nodes}
 
-            self.truthAssignmentTable[literalFormula] = [bool(measurement[i]) for measurement in self.traceVector]
+            for i in range(self.numVariables):
+                literalFormula = Formula(self.literals[i])
 
-        return self.truthValue(formula, 0)
+                self.truthAssignmentTable[literalFormula] = [bool(measurement[i]) for measurement in self.traceVector]
 
-    def truthValue(self, formula, timestep):
+            return self.__truthValue(formula, 0)
+
+        elif isinstance(formula, DecisionTreeFormula):
+
+            truthValue = None
+            tree = formula
+            while tree is not None:
+                truthValue = self.evaluateFormulaOnTrace(tree.label)
+                tree = tree.left if truthValue else tree.right
+            return truthValue
+
+        else:
+            raise NotImplementedError(f"evaluating {type(formula)}")
+
+
+    def __truthValue(self, formula, timestep):
         if timestep is None:
             return False
         futureTracePositions = self.futurePos(timestep)
@@ -104,30 +119,36 @@ class Trace:
         else:
             label = formula.label
             if label == '&':
-                return self.truthValue(formula.left, timestep) and self.truthValue(formula.right, timestep)
+                return self.__truthValue(formula.left, timestep) and self.__truthValue(formula.right, timestep)
             elif label == '|':
-                return self.truthValue(formula.left, timestep) or self.truthValue(formula.right, timestep)
+                return self.__truthValue(formula.left, timestep) or self.__truthValue(formula.right, timestep)
             elif label == '!':
-                return not self.truthValue(formula.left, timestep)
+                return not self.__truthValue(formula.left, timestep)
             elif label == '->':
-                return not self.truthValue(formula.left, timestep) or self.truthValue(formula.right, timestep)
+                return not self.__truthValue(formula.left, timestep) or self.__truthValue(formula.right, timestep)
             elif label == 'F':
-                return max([self.truthValue(formula.left, futureTimestep) for futureTimestep in futureTracePositions])
-                # return self.truthValue(formula.left, timestep) or self.truthValue(formula, self.nextPos(timestep))
+                return max([self.__truthValue(formula.left, futureTimestep) for futureTimestep in futureTracePositions])
+                # return self.__truthValue(formula.left, timestep) or self.__truthValue(formula, self.nextPos(timestep))
             elif label == 'G':
-                return min([self.truthValue(formula.left, futureTimestep) for futureTimestep in futureTracePositions])
-                # return self.truthValue(formula.left, timestep) and not self.truthValue(formula, self.nextPos(timestep))
+                return min([self.__truthValue(formula.left, futureTimestep) for futureTimestep in futureTracePositions])
+                # return self.__truthValue(formula.left, timestep) and not self.__truthValue(formula, self.nextPos(timestep))
             elif label == 'U':
                 return max(
-                    [self.truthValue(formula.right, futureTimestep) for futureTimestep in futureTracePositions]) == True \
+                    [self.__truthValue(formula.right, futureTimestep) for futureTimestep in futureTracePositions]) == True \
                        and ( \
-                                   self.truthValue(formula.right, timestep) \
+                                   self.__truthValue(formula.right, timestep) \
                                    or \
-                                   (self.truthValue(formula.left, timestep) and self.truthValue(formula,
+                                   (self.__truthValue(formula.left, timestep) and self.__truthValue(formula,
                                                                                                 self.nextPos(timestep))) \
                            )
             elif label == 'X':
-                return self.truthValue(formula.left, self.nextPos(timestep))
+                return self.__truthValue(formula.left, self.nextPos(timestep))
+            elif label == 'true':
+                return True
+            elif label == 'false':
+                return False
+            else:
+                raise NotImplementedError(f"evaluation of operator {label!r}")
 
 
 defaultOperators = ['G', 'F', '!', 'U', '&', '|', '->', 'X']
@@ -242,7 +263,7 @@ class ExperimentTraces:
     def weight(self):
         return sum(trace.weight for trace in self)
 
-    def get_score(self, f, score):
+    def get_score(self, f, score='count'):
         good, bad = self.splitCorrect(f)
         if score == 'count':
             return  good.weight / self.weight

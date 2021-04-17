@@ -4,8 +4,9 @@ import sys
 import pdb
 import traceback
 import logging
+from collections import deque
 from pytictoc import TicToc
-from utils.SimpleTree import Formula
+from utils.SimpleTree import Formula, DecisionTreeFormula
 
 def get_models(
     traces,
@@ -52,7 +53,7 @@ def get_models(
             fg.encodeFormula(optimize=(optimize if i>=optimizeDepth else None))
         else:
             if fg.optimize:
-                logging.info(f"found formula {formula.prettyPrint()}"+(f" ({fg.optimize}={score})" if fg.optimize else ""))
+                logging.info(f"found formula {formula.prettyPrint()} ({fg.optimize}={score})")
             else:
                 logging.info(f"found formula {formula.prettyPrint()}")
             #print(f"found formula {formula}")
@@ -86,3 +87,55 @@ def get_models(
     # time_z3
     # print(time_z3, time_total)
     return results
+
+def get_rec_dt(
+    traces,
+    misclassification=0,
+    timeout=float("inf"),
+    **solver_args,
+):
+    logname="recdt"
+    tictoc_total = TicToc()
+    tictoc_total.tic()
+
+    result = DecisionTreeFormula(label="?")
+    queue = deque()
+    queue.append((traces, result))
+
+    while queue:
+
+        nodeTraces, node = queue.pop() # depth first
+        # nodeTraces, node = queue.popleft() # breath fisrt
+        logging.debug(f"{logname}:solving on (pos+neg)={len(nodeTraces.positive)}+{len(nodeTraces.negative)}={len(nodeTraces)} traces...")
+
+        formulas = get_models(
+            traces=nodeTraces,
+            **solver_args,
+            maxNumModels=1,
+            timeout=timeout-tictoc_total.tocvalue(),
+        )
+        node.label = formula = formulas[0]
+        accTraces, rejTraces = nodeTraces.splitEval(formula)
+
+        subbranches = []
+        for subTraces, child in [
+            (accTraces, "left" ),
+            (rejTraces, "right"),
+        ]:
+            if len(subTraces)==0 or (1-subTraces.get_score(formula, score='count') <= misclassification):
+                logging.debug(f"{logname}:{child} child got {len(subTraces.positive)}+{len(subTraces.negative)}={len(subTraces)} traces, it was effective!")
+                continue # no child
+            childnode = DecisionTreeFormula(label="?")
+            setattr(node, child, childnode)
+            if len(subTraces) == len(nodeTraces):
+                logging.warning(f"{logname}:{child} child got {len(subTraces.positive)}+{len(subTraces.negative)}={len(subTraces)} traces, it was ineffective!")
+                childnode.label="..."
+                # if "stop_on_inf_rec":
+                #     msg = f"Ineffective split between {len(nodeTraces)} traces with formula {formula.prettyPrint()}."
+                #     raise RuntimeError(msg)
+                continue
+            else:
+                logging.debug(f"{logname}:{child} child got {len(subTraces.positive)}+{len(subTraces.negative)}={len(subTraces)} traces, processing it later.")
+            queue.append((subTraces, childnode))
+
+    return result

@@ -7,7 +7,7 @@ import pdb
 from utils import config
 from formulaBuilder.DTFormulaBuilder import DTFormulaBuilder
 from formulaBuilder.AtomBuilder import AtomBuilder, AtomBuildingStrategy
-from formulaBuilder.satQuerying import get_models
+from formulaBuilder.satQuerying import get_models, get_rec_dt
 
 def run_solver(*,
     q=None,
@@ -25,6 +25,26 @@ def run_solver(*,
         q.put([results, time_passed])
     else:
         return [results, time_passed]
+
+def run_rec_dt(*,
+    traces,
+    q=None,
+    encoder=DagSATEncoding,
+    **solver_args,
+):
+    separate_process = q is not None
+
+    t = TicToc()
+    t.tic()
+    result = get_rec_dt(traces=traces, encoder=encoder, **solver_args)
+    time_passed = t.tocvalue()
+
+    result.writeDotFile("recdt.dot", traces=traces)
+
+    if separate_process == True:
+        q.put([result, time_passed])
+    else:
+        return [result, time_passed]
 
 
 
@@ -66,8 +86,9 @@ def run_dt_solver(
 
         numberOfUsedPrimitives = fb.numberOfNodes()
         fb.tree_to_text_file(treeTxtFile)
+        fb.tree_to_dot_file("atoms.dot")
     #    return (timePassed, len(atoms), numberOfUsedPrimitives)
-        if separateProcess:
+        if separate_process:
             q.put([timePassed, len(atoms), numberOfUsedPrimitives])
         else:
             return [timePassed, len(atoms), numberOfUsedPrimitives]

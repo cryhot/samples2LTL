@@ -5,7 +5,7 @@ from z3 import *
 import argparse
 from smtEncoding.dagSATEncoding import DagSATEncoding
 import os
-from solverRuns import run_solver, run_dt_solver
+from solverRuns import run_solver, run_rec_dt, run_dt_solver
 from utils.Traces import Trace, ExperimentTraces, parseExperimentTraces
 from multiprocessing import Process, Queue
 import logging
@@ -23,6 +23,10 @@ def main():
     )
     parser.add_argument("--test_dt_method",
         dest='testDtMethod', default=False,
+        action='store_true',
+    )
+    parser.add_argument("--test_rec_dt",
+        dest='testRecDtMethod', default=False,
         action='store_true',
     )
     parser.add_argument("--misclassification", metavar="R",
@@ -108,8 +112,28 @@ def main():
             maxNumModels=args.numFormulas,
             timeout=args.timeout,
         )
-        logging.info("formulas: "+str([f.prettyPrint(f) for f in formulas])+", timePassed: "+str(timePassed))
+        logging.info(f"formulas: {[f.prettyPrint() for f in formulas]}, timePassed: {timePassed}")
 
+    if args.testRecDtMethod:
+        formula, timePassed = run_rec_dt(
+            traces=traces,
+            startDepth=args.startDepth, maxDepth=args.maxDepth, step=args.iterationStep,
+            optimizeDepth=args.optimizeDepth,
+            optimize=args.optimize, minScore=args.minScore,
+            misclassification=args.misclassification,
+            timeout=args.timeout,
+        )
+        trimedFormula = formula.trimPseudoNodes()
+        flatFormula = trimedFormula.flattenToFormula()
+        logging.debug(f"formula: {formula.prettyPrint()}")
+        # logging.debug(f"DT formulas: {flatFormula.prettyPrint()}, timePassed: {timePassed}")
+        logging.info(f"timePassed: {timePassed}, completeDT: {trimedFormula is formula}, sizeDT: {trimedFormula.getSize()}, depthDT: {trimedFormula.getDepth()}, misclassification: {1-traces.get_score(trimedFormula, score='count')}")
+        logging.info(f"misclassification: {1-traces.get_score(flatFormula, score='count')}")
+        # good, bad = traces.splitCorrect(trimedFormula)
+        # print
+        # good.writeTraces(only_traces=True)
+        # print('===')
+        # bad.writeTraces(only_traces=True)
 
     if args.testDtMethod:
 
