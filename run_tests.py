@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import time
 import subprocess
 import os
@@ -9,7 +11,7 @@ import subprocess
 import argparse
 import functools, itertools, operator
 from utils.Traces import Trace, ExperimentTraces, parseExperimentTraces
-from solverRuns import run_solver, run_dt_solver
+from solverRuns import run_solver, run_rec_dt, run_dt_solver
 
 from utils import datas
 
@@ -32,15 +34,19 @@ def subprocess_calls(
 
 			if method == 'MaxSAT': solver_args.setdefault('optimizeDepth', 1)
 
-			name="SAT"
+			method="SAT"
 			if 'optimizeDepth' in solver_args and solver_args['optimizeDepth'] < solver_args['maxDepth']:
-			    name="MaxSAT"
+			    method="MaxSAT"
 			else:
 			    for a in {'optimizeDepth','optimize','minScore'}:
 			        solver_args.pop(a, None)
 			record['algo'] = datas.json_algo(
-			    name=name,
-			    args=solver_args,
+			    name=method,
+			    args={
+					key: arg
+					for key,arg in sorted(solver_args.items())
+					if key in subprocess_calls.keys[method]
+				},
 			)
 
 			formulas, timePassed = run_solver(
@@ -49,6 +55,7 @@ def subprocess_calls(
 				# startDepth=args.startDepth, maxDepth=args.maxDepth, step=args.iterationStep,
 				# optimizeDepth=args.optimizeDepth,
 				# optimize=args.optimize, minScore=args.minScore,
+            	# timeout=args.timeout,
 				**solver_args,
 			)
 			record['run'] = dict(
@@ -60,9 +67,51 @@ def subprocess_calls(
 			    record['result'] = dict(
 			        formula=formula.prettyPrint(),
 			        nSub=formula.getNumberOfSubformulas(),
+					depth=formula.getDepth(),
+					misclassification=1-traces.get_score(formula, score='count'),
 			    )
+
+		elif method == 'MaxSAT-DT':
+
+			solver_args.setdefault('optimizeDepth', 1)
+
+			record['algo'] = datas.json_algo(
+			    name=method,
+			    args={
+					key: arg
+					for key,arg in sorted(solver_args.items())
+					if key in subprocess_calls.keys[method]
+				},
+			)
+
+			formulaTree, timePassed = run_rec_dt(
+				traces=traces,
+				# startDepth=args.startDepth, maxDepth=args.maxDepth, step=args.iterationStep,
+				# optimizeDepth=args.optimizeDepth,
+				# optimize=args.optimize, minScore=args.minScore,
+				# misclassification=args.misclassification,
+				# timeout=args.timeout,
+				**solver_args,
+			)
+			trimedFormulaTree = formulaTree.trimPseudoNodes()
+			flatFormula = trimedFormulaTree.flattenToFormula()
+			record['run'] = dict(
+			    time=timePassed,
+			    success=trimedFormulaTree is formulaTree,
+			)
+			record['result'] = dict(
+			    decisionTree=formulaTree.prettyPrint(),
+			    sizeDT=trimedFormulaTree.getSize(),
+			    depthDT=trimedFormulaTree.getDepth(),
+			    formula=flatFormula.prettyPrint(),
+				nSub=flatFormula.getNumberOfSubformulas(),
+				depth=flatFormula.getDepth(),
+				misclassification=1-traces.get_score(trimedFormulaTree, score='count'),
+			)
+
 		elif method == 'SAT-DT':
 			raise NotImplementedError()
+
 		else:
 			raise NotImplementedError()
 
@@ -82,8 +131,8 @@ subprocess_calls.keys = keys = dict()
 keys['*'] = {'timeout'}
 keys['SAT'] = keys['*']|{'startDepth','maxDepth','step'}
 keys['MaxSAT'] = keys['SAT']|{'optimizeDepth','optimize','minScore'}
-keys['SAT-DT'] = keys['*']|set()
-keys['MaxSAT-DT'] = keys['*']|set()
+keys['MaxSAT-DT'] = keys['MaxSAT']|{'misclassification'}
+keys['SAT-DT'] = {'misclassification'}
 # keys['?']=functools.reduce(operator.or_, keys.values(), set())
 subprocess_calls.fileformatstrings = {
 	'method':     (lambda record: record['algo']['name']),

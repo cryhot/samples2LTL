@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 from rq import Queue, Worker, Connection
 from redis import Redis
 from random import seed
@@ -274,17 +276,17 @@ def get_parser(parser=None):
 	)
 	group_maxsat = group_sat
 	group_maxsat.add_argument("--optimize_depth", metavar="I",
-	    dest='optimizeDepth',
+	    dest='optimizeDepth', #default=1 if 'MaxSAT' in args.method else float("inf"),
 	    type=int, action='append',
 	    help="use optimizer for formula size >= I",
 	)
 	group_maxsat.add_argument("--optimize", #metavar="SCORE",
-	    dest='optimize',
+	    dest='optimize', #default="count",
 	    choices=['count', 'ratio'], action='append',
 	    help="score to optimize",
 	)
 	group_maxsat.add_argument("--min_score", metavar="S",
-	    dest='minScore', default=0,
+	    dest='minScore', #default=0,
 	    type=float, action='append',
 	    help="formula should achieve a score > S",
 	)

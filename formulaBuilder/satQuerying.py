@@ -5,6 +5,8 @@ import pdb
 import traceback
 import logging
 from collections import deque
+import heapq
+from random import random
 from pytictoc import TicToc
 from utils.SimpleTree import Formula, DecisionTreeFormula
 
@@ -91,21 +93,33 @@ def get_models(
 def get_rec_dt(
     traces,
     misclassification=0,
+    search="breath",
     timeout=float("inf"),
     **solver_args,
 ):
+    return_partial = True
     logname="recdt"
     tictoc_total = TicToc()
     tictoc_total.tic()
 
+    if search in {"depth","breath"}:
+        queue = deque()
+        queue_push = lambda nodeTraces, node: queue.append((nodeTraces, node))
+        if   search=="depth":  queue_pop = queue.pop
+        elif search=="breath": queue_pop = queue.popleft
+    elif search=="priority":
+        queue = []
+        queue_push = lambda nodeTraces, node: heapq.heappush(queue, ((-len(traces), random()), nodeTraces, node))
+        queue_pop  = lambda : heapq.heappop(queue)[1:]
+    else:
+        raise NotImplementedError(f"tree search: {search!r}")
+
     result = DecisionTreeFormula(label="?")
-    queue = deque()
-    queue.append((traces, result))
+    queue_push(traces, result)
 
     while queue:
 
-        nodeTraces, node = queue.pop() # depth first
-        # nodeTraces, node = queue.popleft() # breath fisrt
+        nodeTraces, node = queue_pop()
         logging.debug(f"{logname}:solving on (pos+neg)={len(nodeTraces.positive)}+{len(nodeTraces.negative)}={len(nodeTraces)} traces...")
 
         formulas = get_models(
@@ -114,6 +128,10 @@ def get_rec_dt(
             maxNumModels=1,
             timeout=timeout-tictoc_total.tocvalue(),
         )
+        if len(formulas)<1: # timeout
+            if not(return_partial):
+                return None
+            break
         node.label = formula = formulas[0]
         accTraces, rejTraces = nodeTraces.splitEval(formula)
 
@@ -130,12 +148,13 @@ def get_rec_dt(
             if len(subTraces) == len(nodeTraces):
                 logging.warning(f"{logname}:{child} child got {len(subTraces.positive)}+{len(subTraces.negative)}={len(subTraces)} traces, it was ineffective!")
                 childnode.label="..."
-                # if "stop_on_inf_rec":
-                #     msg = f"Ineffective split between {len(nodeTraces)} traces with formula {formula.prettyPrint()}."
-                #     raise RuntimeError(msg)
+                if not(return_partial):
+                    msg = f"Ineffective split between {len(nodeTraces)} traces with formula {formula.prettyPrint()}."
+                    raise RuntimeError(msg)
+                    break
                 continue
             else:
                 logging.debug(f"{logname}:{child} child got {len(subTraces.positive)}+{len(subTraces.negative)}={len(subTraces)} traces, processing it later.")
-            queue.append((subTraces, childnode))
+            queue_push(subTraces, childnode)
 
     return result
