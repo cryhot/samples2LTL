@@ -61,6 +61,11 @@ class TreeSATEncoding:
             
             self.generateRestrictions(0, 0, 0, traceId, rejectedTrace)
              
+    def set_timeout(self, timeout):
+        if timeout is None: timeout=float("inf")
+        timeout = int(min(timeout*1000, sys.maxsize)) # in milliseconds
+        self.solver.set(timeout=timeout)
+        return timeout/1000
                 
     def reconstructWholeFormula(self, model):
         return self.reconstructFormula(0,0,model)   

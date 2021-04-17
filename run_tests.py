@@ -29,25 +29,24 @@ def subprocess_calls(
 		filename=traces_filename,
 	)
 
+	if 'MaxSAT' in method: solver_args.setdefault('optimizeDepth', 1)
+	if method=="SAT" and 'optimizeDepth' in solver_args and solver_args['optimizeDepth'] < solver_args['maxDepth']:
+		method="MaxSAT"
+
+	record['algo'] = datas.json_algo(
+	    name=method,
+	    args={
+			key: arg
+			for key,arg in sorted(solver_args.items())
+			if key in subprocess_calls.keys[method]
+		},
+	)
+
+	recordoutputfile = subprocess_calls._format_filename(outputfile, record, ext=".json")
+	os.makedirs(os.path.realpath(os.path.dirname(recordoutputfile)), exist_ok=True)
+
 	try:
 		if method in {'SAT', 'MaxSAT'}:
-
-			if method == 'MaxSAT': solver_args.setdefault('optimizeDepth', 1)
-
-			method="SAT"
-			if 'optimizeDepth' in solver_args and solver_args['optimizeDepth'] < solver_args['maxDepth']:
-			    method="MaxSAT"
-			else:
-			    for a in {'optimizeDepth','optimize','minScore'}:
-			        solver_args.pop(a, None)
-			record['algo'] = datas.json_algo(
-			    name=method,
-			    args={
-					key: arg
-					for key,arg in sorted(solver_args.items())
-					if key in subprocess_calls.keys[method]
-				},
-			)
 
 			formulas, timePassed = run_solver(
 				traces=traces,
@@ -72,17 +71,6 @@ def subprocess_calls(
 			    )
 
 		elif method == 'MaxSAT-DT':
-
-			solver_args.setdefault('optimizeDepth', 1)
-
-			record['algo'] = datas.json_algo(
-			    name=method,
-			    args={
-					key: arg
-					for key,arg in sorted(solver_args.items())
-					if key in subprocess_calls.keys[method]
-				},
-			)
 
 			formulaTree, timePassed = run_rec_dt(
 				traces=traces,
@@ -110,7 +98,40 @@ def subprocess_calls(
 			)
 
 		elif method == 'SAT-DT':
-			raise NotImplementedError()
+
+			try:
+				record_result = record.setdefault('result', dict())
+				timePassed, numAtoms, numPrimitives = run_dt_solver(
+		            traces=traces,
+					txtFile=subprocess_calls._format_filename(outputfile, record, ext=".txt"),
+					**solver_args,
+					record_result=record_result,
+		        )
+				formulaTree = record_result.pop('formulaTree')
+				trimedFormulaTree = formulaTree.trimPseudoNodes()
+				flatFormula = trimedFormulaTree.flattenToFormula()
+				record['run'] = dict(
+				    time=timePassed,
+				    success=True,
+				)
+				record['result'].update(
+				    numAtoms=numAtoms,
+				    numPrimitives=numPrimitives,
+					decisionTree=formulaTree.prettyPrint(),
+				    sizeDT=trimedFormulaTree.getSize(),
+				    depthDT=trimedFormulaTree.getDepth(),
+				    formula=flatFormula.prettyPrint(),
+					nSub=flatFormula.getNumberOfSubformulas(),
+					depth=flatFormula.getDepth(),
+					misclassification=1-traces.get_score(trimedFormulaTree, score='count'),
+				)
+			except Exception as err:
+				record['run'] = dict(
+				    time=solver_args.get('timeout'),
+				    success=False,
+				)
+				raise err
+
 
 		else:
 			raise NotImplementedError()
@@ -121,9 +142,7 @@ def subprocess_calls(
 		# df = pandas.DataFrame([datas.json_flatten(record)]*5)
 		# pprint(df)
 
-		outputfile = outputfile.format(**{key:getval(record) for key,getval in subprocess_calls.fileformatstrings.items()})
-		os.makedirs(os.path.realpath(os.path.dirname(traces_filename)), exist_ok=True)
-		with open(outputfile, 'w') as f:
+		with open(recordoutputfile, 'w') as f:
 			json.dump(record, f)
 
 subprocess_calls.methods = methods = {'SAT','MaxSAT','SAT-DT','MaxSAT-DT'}
@@ -132,18 +151,21 @@ keys['*'] = {'timeout'}
 keys['SAT'] = keys['*']|{'startDepth','maxDepth','step'}
 keys['MaxSAT'] = keys['SAT']|{'optimizeDepth','optimize','minScore'}
 keys['MaxSAT-DT'] = keys['MaxSAT']|{'misclassification'}
-keys['SAT-DT'] = {'misclassification'}
+keys['SAT-DT'] = keys['*']|{'misclassification'}
 # keys['?']=functools.reduce(operator.or_, keys.values(), set())
 subprocess_calls.fileformatstrings = {
-	'method':     (lambda record: record['algo']['name']),
-	'argshash':   (lambda record: datas.microhash(tuple(sorted(datas.json_flatten(record['algo']).items())))),
-	'ext':        (lambda record: '.json'),
-	'tracesdir':  (lambda record: os.path.realpath(os.path.dirname(record["traces"]["filename"]))),
-	'tracesname': (lambda record: os.path.splitext(os.path.basename(record["traces"]["filename"]))[0]),
-	'tracesext':  (lambda record: os.path.splitext(os.path.basename(record["traces"]["filename"]))[1]),
+	'method':     (lambda rec, d: rec['algo']['name']),
+	'argshash':   (lambda rec, d: datas.microhash(tuple(sorted(datas.json_flatten(rec['algo']).items())))),
+	'ext':        (lambda rec, d: d['ext']),
+	'tracesdir':  (lambda rec, d: os.path.realpath(os.path.dirname(rec["traces"]["filename"]))),
+	'tracesname': (lambda rec, d: os.path.splitext(os.path.basename(rec["traces"]["filename"]))[0]),
+	'tracesext':  (lambda rec, d: os.path.splitext(os.path.basename(rec["traces"]["filename"]))[1]),
 }
 for key in functools.reduce(operator.or_, subprocess_calls.keys.values(), set()):
-	subprocess_calls.fileformatstrings[f'{key}'] = (lambda record: record['algo']['args'].get(key))
+	subprocess_calls.fileformatstrings[f'{key}'] = (lambda rec, d: rec['algo']['args'].get(key))
+subprocess_calls._format_filename = lambda outputfile, record, **d: outputfile.format(**{
+	key:getval(record, d) for key,getval in subprocess_calls.fileformatstrings.items()
+})
 
 '''
 #function for invoking samples2LTL: Ivan's tool

@@ -5,6 +5,7 @@ import random
 import pdb
 from z3 import *
 import logging
+from pytictoc import TicToc
 from .AtomBuildingStrategy import AtomBuildingStrategy
 from utils import config
 
@@ -90,8 +91,18 @@ class AtomBuilder:
     c) strategy = CHOOSE_NOT_SEPARATED adds some pairs that were not distinguished by previous formulas and then some random subset of other formulas 
     In both cases the sampling is repeated `numRepetitionsInsideSampling` times and the whole process is restarted `numRestartsOfSampling` times
     """
-    def buildAtoms(self, sizeOfPSubset, sizeOfNSubset, strategy = AtomBuildingStrategy.RANDOM_SAMPLING, probabilityDecreaseRate=1, \
-                   numRepetitionsInsideSampling = 3, numRestartsOfSampling=3, insistOnCompleteSeparation = True):
+    def buildAtoms(self,
+        sizeOfPSubset,
+        sizeOfNSubset,
+        strategy=AtomBuildingStrategy.RANDOM_SAMPLING,
+        probabilityDecreaseRate=1,
+        numRepetitionsInsideSampling=3,
+        numRestartsOfSampling=3,
+        insistOnCompleteSeparation=True,
+        timeout=float("inf"),
+    ):
+        tictoc_total = TicToc()
+        tictoc_total.tic()
         self.atomTraceEvaluation = {}
         numSeparatedByFormula = {}
         sampleRestarts = 0
@@ -138,6 +149,7 @@ class AtomBuilder:
                 for d in range(1, maxDepth+1):
                     fg = config.encoder(d, atomBuildingTraces)
                     fg.encodeFormula()
+                    if fg.set_timeout(timeout-tictoc_total.tocvalue()) <= 0: break
                     
                     if fg.solver.check() == sat:
                         logging.info("depth %d: sat"%d)

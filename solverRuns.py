@@ -59,6 +59,8 @@ def run_dt_solver(
     q=None,
     encoder=DagSATEncoding,
     misclassification=0,
+    timeout=float("inf"),
+    record_result=dict(), # output
 ):
 
     #try:
@@ -72,11 +74,24 @@ def run_dt_solver(
         decreaseRate = decreaseRate
         t = TicToc()
         t.tic()
-        (atoms, atomTraceEvaluation) = ab.buildAtoms(sizeOfPSubset=subsetSize, strategy = samplingStrategy, sizeOfNSubset=subsetSize, probabilityDecreaseRate=decreaseRate,\
-                      numRepetitionsInsideSampling=repetitionsInsideSampling, numRestartsOfSampling = restartsOfSampling)
+        (atoms, atomTraceEvaluation) = ab.buildAtoms(
+            sizeOfPSubset=subsetSize,
+            strategy=samplingStrategy,
+            sizeOfNSubset=subsetSize,
+            probabilityDecreaseRate=decreaseRate,
+            numRepetitionsInsideSampling=repetitionsInsideSampling,
+            numRestartsOfSampling=restartsOfSampling,
+            timeout=timeout-t.tocvalue(),
+        )
 
         print(ab.atoms, ab.getMatrixRepresentation())
-        fb = DTFormulaBuilder(features = ab.atoms, data = ab.getMatrixRepresentation(), labels = ab.getLabels(), stoppingVal=misclassification)
+        fb = DTFormulaBuilder(
+            features=ab.atoms,
+            data=ab.getMatrixRepresentation(),
+            labels=ab.getLabels(),
+            stoppingVal=misclassification,
+            # timeout=timeout-t.tocvalue(), #TODO
+        )
         fb.createASeparatingFormula()
         timePassed = t.tocvalue()
         atomsFile = "atoms.txt"
@@ -87,6 +102,7 @@ def run_dt_solver(
         numberOfUsedPrimitives = fb.numberOfNodes()
         fb.tree_to_text_file(treeTxtFile)
         fb.tree_to_dot_file("atoms.dot")
+        record_result['formulaTree'] = fb.tree_to_DecisionTreeFormula()
     #    return (timePassed, len(atoms), numberOfUsedPrimitives)
         if separate_process:
             q.put([timePassed, len(atoms), numberOfUsedPrimitives])
