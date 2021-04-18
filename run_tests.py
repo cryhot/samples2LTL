@@ -51,6 +51,10 @@ def subprocess_calls(
 		if method in {'SAT', 'MaxSAT'}:
 
 			row = [traces_filename, solver_args.get('timeout'), None, None]
+			with open(csvoutputfile, 'w') as csvfile:
+				writer = csv.writer(csvfile)
+				writer.writerow(row)
+			
 			formulas, timePassed = run_solver(
 				traces=traces,
 				maxNumModels=1,
