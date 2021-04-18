@@ -211,9 +211,9 @@ def get_parser(parser=None):
 	    help="timeout in seconds",
 	)
 	group_multiproc.add_argument("--shutdown-timeout", metavar="T",
-	    dest='shutdownTimeout', default=0,
+	    dest='shutdownTimeout', default=None,
 	    type=int,
-	    help="additionnal time given to the process to shut itself down before killing it (default: 5 minutes)",
+	    help="additionnal time given to the process to shut itself down before killing it (default: 2+timeout/10 seconds)",
 	)
 	fileformatstrings = list("{%s}" % (key,) for key in subprocess_calls.fileformatstrings)
 	group_multiproc.add_argument("--output-folder-format", metavar="DIRNAME",
@@ -299,7 +299,7 @@ def get_parser(parser=None):
 	#     dest='numFormulas', default=1,
 	#     type=int,
 	# )
-	
+
 	group_dt = parser.add_argument_group('dt method arguments')
 
 	# parser.add_argument("--log", metavar="LVL",
@@ -315,7 +315,8 @@ def main():
 	parser = get_parser()
 
 	args,unknown = parser.parse_known_args()
-	
+	if args.shutdownTimeout is None: args.shutdownTimeout = int(2 + 0.1*args.timeout)
+
 	if not args.optimizeDepth: args.optimizeDepth=[1 if 'MaxSAT' in args.method else float("inf")]
 	if not args.optimize: args.optimize=['count']
 	if not args.minScore: args.minScore=[0]
