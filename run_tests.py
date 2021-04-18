@@ -24,7 +24,7 @@ def subprocess_calls(
 	traces = parseExperimentTraces(traces_filename)
 
 	# keep record
-	record = dict()
+	record = datas.Data()
 	record['traces'] = datas.json_traces_file(
 		filename=traces_filename,
 	)
@@ -60,13 +60,13 @@ def subprocess_calls(
             	# timeout=args.timeout,
 				**solver_args,
 			)
-			record['run'] = dict(
+			record['run'] = datas.Data(
 			    time=timePassed,
 			    success=len(formulas)>0,
 			)
 			if record['run']['success']:
 			    formula = formulas[0]
-			    record['result'] = dict(
+			    record['result'] = datas.Data(
 			        formula=formula.prettyPrint(),
 			        nSub=formula.getNumberOfSubformulas(),
 					depth=formula.getDepth(),
@@ -92,11 +92,11 @@ def subprocess_calls(
 			)
 			trimedFormulaTree = formulaTree.trimPseudoNodes()
 			flatFormula = trimedFormulaTree.flattenToFormula()
-			record['run'] = dict(
+			record['run'] = datas.Data(
 			    time=timePassed,
 			    success=trimedFormulaTree is formulaTree,
 			)
-			record['result'] = dict(
+			record['result'] = datas.Data(
 			    decisionTree=formulaTree.prettyPrint(),
 			    sizeDT=trimedFormulaTree.getSize(),
 			    depthDT=trimedFormulaTree.getDepth(),
@@ -109,7 +109,7 @@ def subprocess_calls(
 		elif method == 'SAT-DT':
 
 			try:
-				record_result = record.setdefault('result', dict())
+				record_result = {}
 				timePassed, numAtoms, numPrimitives = run_dt_solver(
 		            traces=traces,
 					txtFile=subprocess_calls._format_filename(outputfile, record, ext=".txt"),
@@ -119,11 +119,11 @@ def subprocess_calls(
 				formulaTree = record_result.pop('formulaTree')
 				trimedFormulaTree = formulaTree.trimPseudoNodes()
 				flatFormula = trimedFormulaTree.flattenToFormula()
-				record['run'] = dict(
+				record['run'] = datas.Data(
 				    time=timePassed,
 				    success=True,
 				)
-				record['result'].update(
+				record['result'] = datas.Data(
 				    numAtoms=numAtoms,
 				    numPrimitives=numPrimitives,
 					decisionTree=formulaTree.prettyPrint(),
@@ -152,7 +152,7 @@ def subprocess_calls(
 		# pprint(df)
 
 		with open(recordoutputfile, 'w') as f:
-			json.dump(record, f)
+			json.dump(record, f, indent="\t")
 
 subprocess_calls.methods = methods = {'SAT','MaxSAT','SAT-DT','MaxSAT-DT'}
 subprocess_calls.keys = keys = dict()
