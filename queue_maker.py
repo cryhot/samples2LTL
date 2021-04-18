@@ -76,7 +76,6 @@ class multiprocess:
 			id = datas.microhash(id)
 			job_id = f"{tracesFileName}.{id}"
 			# output_filename = f"{job_id}-out.csv"
-
 			if 1:
 				# print(output_filename)
 				q.enqueue(subprocess_calls,
@@ -103,13 +102,14 @@ class multiprocess:
 
 
 
-	def compile_results(self):
+	def compile_results(self, results_file):
 
-		raise NotImplementedError("code require change")
+		#raise NotImplementedError("code require change")
+		#work-around code
 
-		with open(self.tracesFolderName+'compiled.csv', 'w') as file1:
+		with open(self.tracesFolderName+results_file+'.csv', 'w') as file1:
 			writer = csv.writer(file1)
-			csvInfo = [['File Name', 'Flie Time', 'Flie Formula Size', 'Flie Output formula']]
+			csvInfo = [['File Name', 'Time', 'Formula Size', 'Output formula']]
 			csvFileList = []
 
 			#Reading all the csv files in the folder
@@ -118,25 +118,23 @@ class multiprocess:
 					if file.endswith('.csv'):
 						csvFileList.append(str(os.path.join(root, file)))
 
-			csvFileList.remove(self.tracesFolderName+'compiled.csv')
-
+			csvFileList.remove(self.tracesFolderName+results_file+'.csv')
 			#Collating the results
 
 			for csvFileName in csvFileList:
 				with open(csvFileName, 'r') as file2:
 					rows = csv.reader(file2)
 					row_list = list(rows)
-					tracesFileName = csvFileName.split('output')[0]
+					tracesFileName = csvFileName.split('.')[0]+'.trace'
 
-					if row_list == []:
-						csvrow =[tracesFileName, self.timeout, None, None]
-					else:
-						csvrow = row_list[0]#this file has not timed out
+					csvrow = row_list[0]
 
 				csvInfo.append(csvrow)
 
 			writer.writerows(csvInfo)
 
+		for csvfile in csvFileList:
+			os.remove(csvfile)
 
 
 def str2nums(string):
@@ -195,18 +193,25 @@ def get_parser(parser=None):
 		action='store_true',
 		help="compile results (default: populate queue)",
 	)
+	group_multiproc.add_argument('-r', '--results_file',
+		dest='results_file',
+		default='compiled',
+		help="file to store the compiled results",
+	)
+
+
 	group_multiproc.add_argument("-f", "--traces_folder",
 	    dest='traces_folder',
-	    default="traces/dummy.trace",
+	    default="../few_traces_dummy/",
 		help="trace file/folder to run",
 	)
 	group_multiproc.add_argument("-T", "--timeout", metavar="T",
-	    dest='timeout', default=float("inf"),
+	    dest='timeout', default=10,
 	    type=int,
 	    help="timeout in seconds",
 	)
 	group_multiproc.add_argument("--shutdown-timeout", metavar="T",
-	    dest='shutdownTimeout', default=60*5,
+	    dest='shutdownTimeout', default=0,
 	    type=int,
 	    help="additionnal time given to the process to shut itself down before killing it (default: 5 minutes)",
 	)
@@ -294,7 +299,7 @@ def get_parser(parser=None):
 	#     dest='numFormulas', default=1,
 	#     type=int,
 	# )
-
+	
 	group_dt = parser.add_argument_group('dt method arguments')
 
 	# parser.add_argument("--log", metavar="LVL",
@@ -310,7 +315,7 @@ def main():
 	parser = get_parser()
 
 	args,unknown = parser.parse_known_args()
-
+	
 	if not args.optimizeDepth: args.optimizeDepth=[1 if 'MaxSAT' in args.method else float("inf")]
 	if not args.optimize: args.optimize=['count']
 	if not args.minScore: args.minScore=[0]
@@ -337,7 +342,7 @@ def main():
 	)
 
 	if args.compile:
-		m.compile_results()
+		m.compile_results(args.results_file)
 	else:
 		m.populate_queue()
 

@@ -43,11 +43,14 @@ def subprocess_calls(
 	)
 
 	recordoutputfile = subprocess_calls._format_filename(outputfile, record, ext=".json")
+	csvoutputfile = subprocess_calls._format_filename(outputfile, record, ext=".csv")
+
 	os.makedirs(os.path.realpath(os.path.dirname(recordoutputfile)), exist_ok=True)
 
 	try:
 		if method in {'SAT', 'MaxSAT'}:
 
+			row = [traces_filename, solver_args.get(timeout), None, None]
 			formulas, timePassed = run_solver(
 				traces=traces,
 				maxNumModels=1,
@@ -69,6 +72,12 @@ def subprocess_calls(
 					depth=formula.getDepth(),
 					misclassification=1-traces.get_score(formula, score='count'),
 			    )
+			    row = [traces_filename, timePassed, formula.getNumberOfSubformulas() , formula.prettyPrint()]
+
+			with open(csvoutputfile, 'w') as csvfile:
+				writer = csv.writer(csvfile)
+				writer.writerow(row)
+
 
 		elif method == 'MaxSAT-DT':
 
