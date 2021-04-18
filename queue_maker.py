@@ -201,7 +201,7 @@ def get_parser(parser=None):
 
 	group_multiproc.add_argument("-f", "--traces_folder",
 	    dest='traces_folder',
-	    default="../all_traces/",
+	    default="../all_traces_maxsat/",
 		help="trace file/folder to run",
 	)
 	group_multiproc.add_argument("-T", "--timeout", metavar="T",
