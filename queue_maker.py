@@ -117,7 +117,6 @@ class multiprocess:
 				for file in files:
 					if file.endswith('.csv'):
 						csvFileList.append(str(os.path.join(root, file)))
-
 			csvFileList.remove(self.tracesFolderName+results_file+'.csv')
 			#Collating the results
 
@@ -133,8 +132,8 @@ class multiprocess:
 
 			writer.writerows(csvInfo)
 
-		for csvfile in csvFileList:
-			os.remove(csvfile)
+		#for csvfile in csvFileList:
+		#	os.remove(csvfile)
 
 
 def str2nums(string):
@@ -202,11 +201,11 @@ def get_parser(parser=None):
 
 	group_multiproc.add_argument("-f", "--traces_folder",
 	    dest='traces_folder',
-	    default="../few_traces_dummy/",
+	    default="../all_traces/",
 		help="trace file/folder to run",
 	)
 	group_multiproc.add_argument("-T", "--timeout", metavar="T",
-	    dest='timeout', default=10,
+	    dest='timeout', default=900,
 	    type=int,
 	    help="timeout in seconds",
 	)

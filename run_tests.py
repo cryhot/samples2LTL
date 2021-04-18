@@ -50,7 +50,7 @@ def subprocess_calls(
 	try:
 		if method in {'SAT', 'MaxSAT'}:
 
-			row = [traces_filename, solver_args.get(timeout), None, None]
+			row = [traces_filename, solver_args.get('timeout'), None, None]
 			formulas, timePassed = run_solver(
 				traces=traces,
 				maxNumModels=1,
