@@ -1,5 +1,6 @@
 import pdb
 import random
+import csv
 
 from utils.SimpleTree import SimpleTree, Formula
 from utils.Traces import Trace, ExperimentTraces
@@ -73,20 +74,30 @@ def misclassify(traces, misclassificationRate=0.05):
     if misclassificationRate>0:
         #randomly select some examples
         numTraces = len(allTraces["accepting"])+len(allTraces["rejecting"])
-        
         numSwaps = max(1, int(numTraces*misclassificationRate))
 
-        numFalseNeg = min(len(allTraces["accepting"]), random.randint(1, numSwaps))#at least 1 gets swapped
-        numFalsePos = max(1, numSwaps - numFalseNeg) #at least 1 gets swapped
 
+        if numSwaps > len(allTraces["accepting"]):
 
-        falseNeg = allTraces["accepting"][-numFalseNeg:]
-        falsePos = allTraces["rejecting"][-numFalsePos:]
+            numFalseNeg = random.randint(0, len(allTraces["accepting"])-1)
+            numFalsePos = numSwaps - numFalseNeg    
+
+        elif numSwaps > len(allTraces["rejecting"]):
+            numFalsePos = random.randint(0, len(allTraces["rejecting"])-1)#at least 1 gets swapped
+            numFalseNeg = numSwaps - numFalsePos
+
+        else:
+            numFalseNeg = random.randint(0, numSwaps)
+            numFalsePos = numSwaps - numFalseNeg
+        
+
+        falseNeg = allTraces["accepting"][:numFalseNeg]
+        falsePos = allTraces["rejecting"][:numFalsePos]
 
 
         allTraces = {
-            "accepting": allTraces["accepting"][:-numFalseNeg] + falsePos,
-            "rejecting": allTraces["rejecting"][:-numFalsePos] + falseNeg,
+            "accepting": allTraces["accepting"][numFalseNeg:] + falsePos,
+            "rejecting": allTraces["rejecting"][numFalsePos:] + falseNeg,
         }
 
         random.shuffle(allTraces["accepting"])
