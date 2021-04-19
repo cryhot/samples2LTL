@@ -56,7 +56,6 @@ class multiprocess:
 		self.args = args
 		self.kwargs = kwargs
 		self.flieTracesFileList = []
-		print('Something')
 		for root, dirs, files in os.walk(self.tracesFolderName):
 			for file in files:
 				if file.endswith('.trace'):
@@ -71,7 +70,7 @@ class multiprocess:
 		"""
 			:param queue_handling: "ENQUEUE" | "RUN" | "DRY"
 		"""
-		print(queue_handling)
+
 		if queue_handling=="ENQUEUE":
 			from rq import Queue, Worker, Connection
 			from redis import Redis
@@ -607,7 +606,6 @@ def createMainParser(parser):
 	return parser
 
 def main():
-	print("Somthing")
 	parser = createMainParser()
 	# args,unknown = parser.parse_known_args()
 	args = parser.parse_args()
