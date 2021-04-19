@@ -150,6 +150,18 @@ def compile_results(tracesFolderName, results_file):
 	#for csvfile in csvFileList:
 	#	os.remove(csvfile)
 
+def arange(start, stop, step=1, endpoint=False, *, decimals=15):
+	endpoint = bool(endpoint) # 0 or 1
+	num = (stop-start)/step
+	if round(num) == numpy.round(num, decimals=15):
+		num = round(num)
+		if num < 0: return []
+		values = numpy.linspace(start, stop, round(num)+endpoint, endpoint=endpoint)
+	else:
+		values = numpy.arange(start, stop, step)
+	values = [numpy.round(v, decimals=15) for v in values]
+	values = [int(v) if int(v)==v else v for v in values]
+	return values
 
 def str2nums(string):
 	"""Returns a list of numbers from a string such as "1,5,10:20,100:200:10".
@@ -166,7 +178,7 @@ def str2nums(string):
 		if len(bounds) == 1:
 			ans.append(*bounds)
 		else:
-			ans.extend(numpy.arange(*bounds))
+			ans.extend(arange(*bounds, endpoint=True))
 	return ans
 
 def argproduct(args=[], kwargs={}):

@@ -45,6 +45,9 @@ def subprocess_calls(
 	recordoutputfile = subprocess_calls._format_filename(outputfile, record, ext=".json")
 	csvoutputfile = subprocess_calls._format_filename(outputfile, record, ext=".csv")
 
+	with open(recordoutputfile, 'w') as f:
+		json.dump(record, f, indent="\t")
+
 	os.makedirs(os.path.realpath(os.path.dirname(recordoutputfile)), exist_ok=True)
 
 	try:
@@ -54,7 +57,7 @@ def subprocess_calls(
 			with open(csvoutputfile, 'w') as csvfile:
 				writer = csv.writer(csvfile)
 				writer.writerow(row)
-			
+
 			formulas, timePassed = run_solver(
 				traces=traces,
 				maxNumModels=1,
