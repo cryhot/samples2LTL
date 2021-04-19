@@ -56,6 +56,7 @@ class multiprocess:
 		self.args = args
 		self.kwargs = kwargs
 		self.flieTracesFileList = []
+		print('Something')
 		for root, dirs, files in os.walk(self.tracesFolderName):
 			for file in files:
 				if file.endswith('.trace'):
@@ -70,6 +71,7 @@ class multiprocess:
 		"""
 			:param queue_handling: "ENQUEUE" | "RUN" | "DRY"
 		"""
+		print(queue_handling)
 		if queue_handling=="ENQUEUE":
 			from rq import Queue, Worker, Connection
 			from redis import Redis
@@ -243,6 +245,7 @@ def parser_factory(name=None, *,
 def createBatchParser(parser):
 	parser.set_defaults(_handler=main_enqueue)
 
+
 	group_multiproc = parser.add_argument_group(
 		title='multiprocessing arguments'
 	)
@@ -278,8 +281,8 @@ def createBatchParser(parser):
 		""",
 	)
 	group_multiproc.add_argument("--enqueue",
-	    dest='queue_handling', default="QUEUE",
-	    const="QUEUE", action='store_const',
+	    dest='queue_handling', default="ENQUEUE",
+	    const="ENQUEUE", action='store_const',
 		help="Enqueue to Redis (default).",
 	)
 	group_multiproc.add_argument("--dry-run",
@@ -604,9 +607,11 @@ def createMainParser(parser):
 	return parser
 
 def main():
+	print("Somthing")
 	parser = createMainParser()
 	# args,unknown = parser.parse_known_args()
 	args = parser.parse_args()
+
 	args._handler(args)
 
 if __name__ == '__main__':
