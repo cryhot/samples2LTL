@@ -605,7 +605,8 @@ def createMainParser(parser):
 
 def main():
 	parser = createMainParser()
-	args,unknown = parser.parse_known_args()
+	# args,unknown = parser.parse_known_args()
+	args = parser.parse_args()
 	args._handler(args)
 
 if __name__ == '__main__':
