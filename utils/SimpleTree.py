@@ -240,7 +240,8 @@ class Formula(SimpleTree):
             #print(tree.pretty())
 
         except Exception as err:
-            raise ValueError(f"can't parse formula {formulaText!r}") from err
+            # raise ValueError(f"can't parse formula {formulaText!r}") from err
+            return cls.convertPrettyToFormula(formulaText)
 
 
         f = TreeToFormula().transform(tree)
@@ -260,6 +261,38 @@ class Formula(SimpleTree):
         if self.label in binary_operators:
             return lb + self.left.prettyPrint() +" "+  self.label +" "+ self.right.prettyPrint() + rb
 
+    @classmethod
+    def convertPrettyToFormula(cls, formulaText):
+
+        f = Formula()
+        try:
+            formula_parser = Lark(r"""
+                ?formula: _binary_expression
+                        |_unary_expression
+                        | constant
+                        | variable
+                !constant: "true"
+                        | "false"
+                _binary_expression: "(" formula binary_operator formula ")"
+                _unary_expression: "(" unary_operator formula ")"
+                variable: /x[0-9]*/
+                !binary_operator: "&" | "|" | "->" | "U"
+                !unary_operator: "F" | "G" | "!" | "X"
+
+                %import common.SIGNED_NUMBER
+                %import common.WS
+                %ignore WS
+             """, start = 'formula')
+
+
+            tree = formula_parser.parse(formulaText)
+            #print(tree.pretty())
+
+        except Exception as err:
+            raise ValueError(f"can't parse formula {formulaText!r}") from err
+
+        f = TreeToFormula().transform(tree)
+        return f
 
 
     def getAllVariables(self):
@@ -284,7 +317,7 @@ class Formula(SimpleTree):
 
 class TreeToFormula(Transformer):
         def formula(self, formulaArgs):
-
+            if not isinstance(formulaArgs[0], str): formulaArgs.insert(0, formulaArgs.pop(1))
             return Formula(formulaArgs)
         def variable(self, varName):
             return Formula([str(varName[0]), None, None])

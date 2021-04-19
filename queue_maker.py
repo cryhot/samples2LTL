@@ -230,6 +230,7 @@ def parser_factory(name=None, *,
 
 
 @parser_factory("enqueue",
+	fromfile_prefix_chars="@",
 	help="run a batch of simulations",
 	epilog="""
 		note: certain argument can take multiple value at the same time.
@@ -245,7 +246,7 @@ def createBatchParser(parser):
 	group_multiproc = parser.add_argument_group(
 		title='multiprocessing arguments'
 	)
-	group_multiproc.add_argument("-f", "--traces_folder",
+	group_multiproc.add_argument("-f", "--traces_folder", metavar="DIR",
 	    dest='traces_folder',
 	    default="../all_traces_maxsat/",
 		help="trace file/folder to run",
@@ -415,12 +416,12 @@ def main_enqueue(args):
 def createCompileCsvParser(parser):
 	parser.set_defaults(_handler=main_compile_csv)
 
-	parser.add_argument("-f", "--traces_folder",
+	parser.add_argument("-f", "--traces_folder", metavar="DIR",
 	    dest='traces_folder',
 	    default="../all_traces/",
 		help="folder where the traces results to compile are.",
 	)
-	parser.add_argument('-r', '-o', '--results_file',
+	parser.add_argument('-r', '-o', '--results_file', metavar="FILE",
 		dest='results_file',
 		default='compiled',
 		help="file to store the compiled results",
@@ -428,6 +429,152 @@ def createCompileCsvParser(parser):
 
 def main_compile_csv(args):
 	compile_results(args.traces_folder, args.results_file)
+
+
+
+@parser_factory("compile",
+	fromfile_prefix_chars="@",
+	help="compile simulation results from json",
+	description="""
+		Compile simulation results from json to csv.
+		It's recommended to use a config file for arguments,
+		that can be called with @args.txt (one argument per line).
+	""",
+	epilog="""
+		EXPR must be a python expression.
+		Run parameters can be accessed by:
+		algo.args.minScore, run.sucess, result.nSub etc.
+		The variables sample and formula are also available.
+	""",
+	)
+def createCompileJsonParser(parser):
+	parser.set_defaults(_handler=main_compile_json)
+
+	parser.add_argument("-f", "--traces_folder", metavar="DIR",
+	    dest='inputs_folder',
+	    default=".",
+		help="folder where the traces results to compile are.",
+	)
+	parser.add_argument("--extension", metavar="EXT",
+	    dest='traces_ext',
+	    default=".out.json",
+		help="trace extension (default: .out.json)",
+	)
+	parser.add_argument('-o', '--output_file', metavar="FILE",
+		dest='output_file',
+		default='compiled.csv',
+		help="file to store the compiled results",
+	)
+
+	group_data = parser.add_argument_group(
+		title='output csv arguments'
+	)
+	group_data.add_argument('--header',
+		dest='with_header', default=True,
+		action="store_true",
+	)
+	group_data.add_argument('--no-header',
+		dest='with_header', #default=True,
+		action="store_false",
+	)
+	group_data.add_argument('--replace-traces', metavar="SRC:DST",
+		dest='traces_file_subst', default=[],
+		action="append",
+		help="replace traces from SRC subdirectories by the ones in DST",
+	)
+	group_data.add_argument('--filter', metavar="EXPR",
+		dest='filters', default=[],
+		action="append",
+		help="keep only traces where EXPR evaluates to True",
+	)
+	group_data.add_argument('columns', metavar="COL:EXPR",
+		nargs='*',
+		help="""Columns of the output csv file"
+		""",
+	)
+
+	return parser
+
+def main_compile_json(args):
+	import json
+	from utils import datas
+	from utils.SimpleTree import Formula, DecisionTreeFormula
+
+	headers = []
+	expressions = []
+	for column in args.columns:
+		split = column.split(':', 1)
+		if len(split)==1: header = expr = split[0]
+		else: header, expr = split
+		headers.append(header.strip())
+		expressions.append(expr)
+
+	traces_file_subst = []
+	for subst in args.traces_file_subst:
+		src,dst = subst.split(':')
+		traces_file_subst.append((os.path.realpath(src),os.path.realpath(dst)))
+
+
+	with open(args.output_file, 'w') as f1:
+		writer = csv.writer(f1)
+		if args.with_header:
+			writer.writerow(headers)
+
+		#Reading all the json files in the folder
+		input_files = []
+		for root, dirs, files in os.walk(args.inputs_folder):
+			for file in files:
+				if not file.endswith(args.traces_ext): continue
+				input_files.append(os.path.join(root, file))
+
+		constants = dict(
+			SAT="SAT",
+			MaxSAT="MaxSAT",
+			SATDT="SAT-DT", SAT_DT="SAT-DT",
+			MaxSATDT="MaxSAT-DT", MaxSAT_DT="MaxSAT-DT",
+		)
+		def eval_expr(expr, record):
+			try:
+				return eval(expr, dict(record))
+			except Exception as err:
+				msg = f"while evaluating {expr!r} on {input_file}"
+				raise RuntimeError(msg) from err
+		#Collating the results
+		for input_file in input_files:
+			try:
+				with open(input_file, 'r') as f2:
+					record = json.load(f2, object_hook=datas.Data)
+					if record.traces.filename:
+						record.traces = datas.json_traces_file(record.traces, level=datas.FULL)
+					if record.result.formula:
+						record.formula = Formula.convertTextToFormula(record.result.formula)
+					if record.result.decisionTree:
+						record.decisionTree = DecisionTreeFormula.convertTextToFormula(record.result.decisionTree)
+				for src, dst in traces_file_subst:
+					trc = os.path.realpath(record.traces.filename)
+					if os.path.commonpath([trc, src]) != src: continue
+					trc = os.path.join(dst, os.path.relpath(trc, start=src))
+					if not os.path.isabs(record.traces.filename):
+						trc = os.path.relpath(trc)
+					record.traces = datas.json_traces_file(dict(filename=trc), level=datas.FULL)
+					if record.formula is not None:
+						record.result.misclassification = 1-record.traces.traces.get_score(record.formula, score='count')
+					break
+				if record.traces.traces:
+					record.sample = record.traces.traces
+				for key in {'result.misclassification','algo.args.minScore','run.time'}:
+					if not isinstance(record[key], float): continue
+					record[key] = numpy.round(record[key], decimals=15)
+				if record.traces.traces:
+					record.sample = record.traces.traces
+
+				if any(not eval_expr(expr, record) for expr in args.filters): continue
+
+				values = [str(eval_expr(expr, record)) for expr in expressions]
+				writer.writerow(values)
+			except Exception as err:
+				msg = f"while handling {input_file}"
+				raise RuntimeError(msg) from err
 
 
 
@@ -441,7 +588,18 @@ def createMainParser(parser):
 		help="action to execute",
 	)
 	createBatchParser(subparsers_command)
-	createCompileCsvParser(subparsers_command)
+	parser_compile = subparsers_command.add_parser("compile",
+		help="compile simulation results",
+	)
+
+	parser_compile.set_defaults(_handler=lambda args: parser_compile.print_help(sys.stderr))
+	subparsers_compile = parser_compile.add_subparsers(metavar="FROM_FORMAT",
+	    title="compilation source", description="Each method has it's own parameters, see further help.",
+	    # required=True, # not working
+		# help="action to execute",
+	)
+	createCompileCsvParser(subparsers_compile, name="csv")
+	createCompileJsonParser(subparsers_compile, name="json")
 
 	return parser
 

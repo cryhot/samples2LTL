@@ -11,7 +11,7 @@ class Data(dict):
     """
     Access by data['key'] or data.key
     Subkeys like data['key']['subkey'] can also be accessed by data['key.subkey']
-    Can be used with json: json.loads(..., object_hook=Data)
+    Can be used with json: json.load(..., object_hook=Data)
     """
     def __getitem__(self, key):
         key = key.split(".", 1)
@@ -72,7 +72,7 @@ def json_traces_file(data={}, level=MINIMAL, **kwargs):
     if level<MINIMAL: return result
     result['filename'] = data['filename']
     result['sha1'] = hash_file(result['filename'])
-    assert data.get('sha1') in (None, result['sha1']), "sha1 should be the same"
+    assert data.get('sha1') in (None, result['sha1']), f"file has changed: {result['filename']}"
     if level<BASIC: return result
     traces = parseExperimentTraces(result['filename'])
     result['posTraces'] = len(traces.positive)

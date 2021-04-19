@@ -1,0 +1,2 @@
+--replace=few_traces/perfect:few_traces/misclass-5
+--replace=few_traces/misclass-5:few_traces/perfect

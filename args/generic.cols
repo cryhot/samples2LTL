@@ -1,0 +1,5 @@
+--filter=           run.success
+Traces:             traces.filename
+Runtime:            run.time
+Formula size:       result.nSub
+Misclassification:  result.misclassification
