@@ -1,0 +1,6 @@
+--filter=           "DT" in algo.name
+--filter=           run.success
+Traces:             traces.filename
+Runtime:            run.time
+Flat Formula size:  result.nSub
+DecisionTree nodes: result.sizeDT

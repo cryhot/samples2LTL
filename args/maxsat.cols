@@ -1,0 +1,6 @@
+--filter=       algo.name == "MaxSAT"
+--filter=       run.success
+Traces:         traces.filename
+Runtime:        run.time
+Formula size:   result.nSub
+Formula:        result.formula

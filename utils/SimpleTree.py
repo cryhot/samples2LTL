@@ -1,6 +1,7 @@
 import pdb
 import re
 import contextlib
+from collections import deque
 from lark import Lark, Transformer
 symmetric_operators = ["&", "|"]
 binary_operators = ["&", "|", "U","->"]
@@ -10,46 +11,46 @@ class SimpleTree:
         self.left = None
         self.right = None
         self.label = label
-    
+
     def __hash__(self):
         return hash((self.label, self.left, self.right))
-    
+
     def __eq__(self, other):
         if other == None:
             return False
         else:
             return self.label == other.label and self.left == other.left and self.right == other.right
-    
+
     def __ne__(self, other):
         return not self == other
-    
+
     def _isLeaf(self):
         return self.right == None and self.left == None
-    
+
     def _addLeftChild(self, child):
         if child == None:
             return
         if type(child) is str:
             child = SimpleTree(child)
         self.left = child
-        
+
     def _addRightChild(self, child):
         if type(child) is str:
             child = SimpleTree(child)
         self.right = child
-    
-    def addChildren(self, leftChild = None, rightChild = None): 
+
+    def addChildren(self, leftChild = None, rightChild = None):
         self._addLeftChild(leftChild)
         self._addRightChild(rightChild)
-        
-        
+
+
     def addChild(self, child):
         self._addLeftChild(child)
-        
+
     def getAllNodes(self):
         leftNodes = []
         rightNodes = []
-        
+
         if self.left != None:
             leftNodes = self.left.getAllNodes()
         if self.right != None:
@@ -61,7 +62,7 @@ class SimpleTree:
             leftLabels = self.left.getAllLabels()
         else:
             leftLabels = []
-            
+
         if self.right != None:
             rightLabels = self.right.getAllLabels()
         else:
@@ -88,19 +89,19 @@ class SimpleTree:
     def __repr__(self):
         if self.left == None and self.right == None:
             return self.label
-        
+
         # the (not enforced assumption) is that if a node has only one child, that is the left one
         elif self.left != None and self.right == None:
             return self.label + '(' + self.left.__repr__() + ')'
-        
+
         elif self.left != None and self.right != None:
             return self.label + '(' + self.left.__repr__() + ',' + self.right.__repr__() + ')'
 
 
 class Formula(SimpleTree):
-    
+
     def __init__(self, formulaArg = "dummyF"):
-        
+
         if not isinstance(formulaArg, str):
             self.label = formulaArg[0]
             self.left = formulaArg[1]
@@ -213,7 +214,7 @@ class Formula(SimpleTree):
 
     @classmethod
     def convertTextToFormula(cls, formulaText):
-        
+
         f = Formula()
         try:
             formula_parser = Lark(r"""
@@ -228,21 +229,21 @@ class Formula(SimpleTree):
                 variable: /x[0-9]*/
                 !binary_operator: "&" | "|" | "->" | "U"
                 !unary_operator: "F" | "G" | "!" | "X"
-                
+
                 %import common.SIGNED_NUMBER
                 %import common.WS
-                %ignore WS 
+                %ignore WS
              """, start = 'formula')
-        
-            
+
+
             tree = formula_parser.parse(formulaText)
             #print(tree.pretty())
-            
-        except Exception as e:
-            print("can't parse formula %s" %formulaText)
-            print("error: %s" %e)
-            
-        
+
+        except Exception as err:
+            # raise ValueError(f"can't parse formula {formulaText!r}") from err
+            return cls.convertPrettyToFormula(formulaText)
+
+
         f = TreeToFormula().transform(tree)
         return f
 
@@ -259,16 +260,48 @@ class Formula(SimpleTree):
             return lb + self.label +" "+ self.left.prettyPrint() + rb
         if self.label in binary_operators:
             return lb + self.left.prettyPrint() +" "+  self.label +" "+ self.right.prettyPrint() + rb
-    
-    
-    
+
+    @classmethod
+    def convertPrettyToFormula(cls, formulaText):
+
+        f = Formula()
+        try:
+            formula_parser = Lark(r"""
+                ?formula: _binary_expression
+                        |_unary_expression
+                        | constant
+                        | variable
+                !constant: "true"
+                        | "false"
+                _binary_expression: "(" formula binary_operator formula ")"
+                _unary_expression: "(" unary_operator formula ")"
+                variable: /x[0-9]*/
+                !binary_operator: "&" | "|" | "->" | "U"
+                !unary_operator: "F" | "G" | "!" | "X"
+
+                %import common.SIGNED_NUMBER
+                %import common.WS
+                %ignore WS
+             """, start = 'formula')
+
+
+            tree = formula_parser.parse(formulaText)
+            #print(tree.pretty())
+
+        except Exception as err:
+            raise ValueError(f"can't parse formula {formulaText!r}") from err
+
+        f = TreeToFormula().transform(tree)
+        return f
+
+
     def getAllVariables(self):
         allNodes = list(set(self.getAllNodes()))
         return [ node for node in allNodes if node._isLeaf() == True ]
-    
+
     def getNumberOfSubformulas(self):
         return len(self.getSetOfSubformulas())
-    
+
     def getSetOfSubformulas(self):
         if self.left == None and self.right == None:
             return [repr(self)]
@@ -279,12 +312,12 @@ class Formula(SimpleTree):
         if self.right != None:
             rightValue = self.right.getSetOfSubformulas()
         return list(set([repr(self)] + leftValue + rightValue))
-        
-             
+
+
 
 class TreeToFormula(Transformer):
         def formula(self, formulaArgs):
-            
+            if not isinstance(formulaArgs[0], str): formulaArgs.insert(0, formulaArgs.pop(1))
             return Formula(formulaArgs)
         def variable(self, varName):
             return Formula([str(varName[0]), None, None])
@@ -294,21 +327,49 @@ class TreeToFormula(Transformer):
             elif str(arg[0]) == "false":
                 connector = "&"
             return Formula([connector, Formula(["x0", None, None]), Formula(["!", Formula(["x0", None, None] ), None])])
-                
+
         def binary_operator(self, args):
             return str(args[0])
         def unary_operator(self, args):
             return str(args[0])
-    
-        
-        
+
+
+
 class DecisionTreeFormula(SimpleTree):
     def __repr__(self):
         left_repr = f"{self.left!r}" if self.left!=None else "*"
         right_repr = f"{self.right!r}" if self.right!=None else "*"
         return f"{self.label};{left_repr};{right_repr}"
 
+    @classmethod
+    def convertTextToFormula(cls, formulaTreeText):
+        """Opposite of prettyPrint"""
+        formulaTextQueue = deque()
+        for formulaText in formulaTreeText.split(";"):
+            if formulaText in {"⊤","⊥","*"}: # leaf
+                formulaTextQueue.append(None)
+            else:
+                try:
+                    formula = Formula.convertTextToFormula(formulaText)
+                except ValueError:
+                    formula = formulaText
+                formulaTextQueue.append(formula)
+        formulaTree = cls.convertQueueToFormula(formulaTextQueue)
+        assert not formulaTextQueue, "no nodes should be left over"
+        return formulaTree
+    @classmethod
+    def convertQueueToFormula(cls, formulaTextQueue):
+        """Pop subformulas from the queue to reconstruct"""
+        formula = formulaTextQueue.popleft()
+        if formula is None:
+            return None
+        node = cls(label=formula)
+        node.left = cls.convertQueueToFormula(formulaTextQueue)
+        node.right = cls.convertQueueToFormula(formulaTextQueue)
+        return node
+
     def prettyPrint(self, top=False):
+        """Opposite of convertTextToFormula"""
         left_repr = self.left.prettyPrint(top) if self.left!=None else "⊤"
         right_repr = self.right.prettyPrint(top) if self.right!=None else "⊥"
         label_repr = self.label.prettyPrint(top) if isinstance(self.label, SimpleTree) else self.label
@@ -328,7 +389,8 @@ class DecisionTreeFormula(SimpleTree):
             ])
 
     def trimPseudoNodes(self):
-        """return a copy where pseudo leaves such as "..." are trimed"""
+        """return a copy where pseudo leaves such as "..." are trimed.
+        Return the tree itself if no change is made."""
         if not isinstance(self.label, Formula):
             return None
         left, right = None, None
@@ -336,7 +398,7 @@ class DecisionTreeFormula(SimpleTree):
         if self.right is not None: right = self.right.trimPseudoNodes()
         if left is self.left and right is self.right:
             return self
-        result = DecisionTreeFormula(label=self.label)
+        result = self.__class__(label=self.label)
         result.left, result.right = left, right
         return result
 

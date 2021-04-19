@@ -7,6 +7,37 @@ MINIMAL=0
 BASIC=1
 FULL=2
 
+class Data(dict):
+    """
+    Access by data['key'] or data.key
+    Subkeys like data['key']['subkey'] can also be accessed by data['key.subkey']
+    Can be used with json: json.load(..., object_hook=Data)
+    """
+    def __getitem__(self, key):
+        key = key.split(".", 1)
+        if len(key) == 1:
+            if key[0] not in self.keys(): return None
+            return super().__getitem__(key[0])
+        return super().__getitem__(key[0]).__getitem__(key[1])
+    def __setitem__(self, key, value):
+        key = key.split(".", 1)
+        if len(key) == 1:
+            return super().__setitem__(key[0], value)
+        return super().__getitem__(key[0]).__setitem__(key[1], value)
+    def __delitem__(self, key):
+        key = key.split(".", 1)
+        if len(key) == 1:
+            if key[0] not in self.keys(): return None
+            return super().__delitem__(key[0])
+        return super().__getitem__(key[0]).__delitem__(key[1])
+    def __getattr__(self, *arg,**kwd):
+        return self.__getitem__(*arg,**kwd)
+    def __setattr__(self, *arg,**kwd):
+        return self.__setitem__(*arg,**kwd)
+    def __delattr__(self, *arg,**kwd):
+        return self.__delitem__(*arg,**kwd)
+
+
 def hash_file(filename):
    """"This function returns the SHA-1 hash
    of the file passed into it"""
@@ -36,12 +67,12 @@ def json_flatten(data, keep_types=None):
 
 
 def json_traces_file(data={}, level=MINIMAL, **kwargs):
-    result = dict()
+    result = Data()
     data = dict(data, **kwargs)
     if level<MINIMAL: return result
     result['filename'] = data['filename']
     result['sha1'] = hash_file(result['filename'])
-    assert data.get('sha1') in (None, result['sha1']), "sha1 should be the same"
+    assert data.get('sha1') in (None, result['sha1']), f"file has changed: {result['filename']}"
     if level<BASIC: return result
     traces = parseExperimentTraces(result['filename'])
     result['posTraces'] = len(traces.positive)
@@ -53,11 +84,11 @@ def json_traces_file(data={}, level=MINIMAL, **kwargs):
     return result
 
 def json_algo(*, name=None, args={}, level=BASIC,):
-    result = dict()
+    result = Data()
     if level<MINIMAL: return result
     if name is not None: result['name'] = name
     if level>=BASIC:
-        result['args'] = dict()
+        result['args'] = Data()
     for key, value in args.items():
         if level<FULL and not isinstance(value, (str,int,float,type(None))):
             continue
