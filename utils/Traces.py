@@ -272,6 +272,9 @@ class ExperimentTraces:
             msg = f'score={score!r}'
             raise NotImplementedError(msg)
 
+    def get_misclassification(self, f):
+        return 1-self.get_score(f, score='count')
+
 
     def __repr__(self):
         returnString = ""

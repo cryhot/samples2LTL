@@ -98,7 +98,8 @@ def get_rec_dt(
     **solver_args,
 ):
     return_partial = True
-    logname="recdt"
+    format_log = lambda traces: f"recdt on (pos+neg)={len(traces.positive)}+{len(traces.negative)}={len(traces)} traces"
+    log_level = logging.INFO
     tictoc_total = TicToc()
     tictoc_total.tic()
 
@@ -115,27 +116,29 @@ def get_rec_dt(
     else:
         raise NotImplementedError(f"tree search: {search!r}")
 
+
     result = DecisionTreeFormula(label="?")
     queue_push(traces, result)
-    i=0
+
     while queue:
         nodeTraces, node = queue_pop()
 
-        positive_ratio = float(len(nodeTraces.positive)/(len(nodeTraces.positive)+len(nodeTraces.negative)))
-        negative_ratio = 1-positive_ratio
-        if (positive_ratio <= misclassification) or (negative_ratio <= misclassification):
-
-            logging.debug(f"{logname}:Stopping criterion reached with {len(nodeTraces.positive)} positives and {len(nodeTraces.negative)} negatives, it was effective!")
-            if positive_ratio <= misclassification:
-                node.label = Formula('false')
-            else:
-                node.label = Formula('true')
-            #childnode = DecisionTreeFormula(label="?")
-            #setattr(node, child, childnode)
+        if len(nodeTraces)==0:
+            logging.log(log_level, f"{format_log(nodeTraces)}: Skipping.")
+            childnode.label="?"
             continue
 
-        logging.debug(f"{logname}:solving on (pos+neg)={len(nodeTraces.positive)}+{len(nodeTraces.negative)}={len(nodeTraces)} traces...")
+        for leafFormula in [Formula('true'), Formula('false')]:
+            stopping_criterion = nodeTraces.get_misclassification(leafFormula) <= misclassification
+            if stopping_criterion:
+                logging.log(log_level, f"{format_log(nodeTraces)}: Stopping criterion reached.")
+                node.label = leafFormula
+                stopping = True
+                break
+        else: stopping = False
+        if stopping: continue
 
+        logging.log(log_level, f"{format_log(nodeTraces)}: Solving...")
         formulas = get_models(
             traces=nodeTraces,
             **solver_args,
@@ -148,30 +151,24 @@ def get_rec_dt(
             break
         node.label = formula = formulas[0]
         accTraces, rejTraces = nodeTraces.splitEval(formula)
-        
-        i+=1
-        subbranches = []
+
         for subTraces, child in [
             (accTraces, "left" ),
             (rejTraces, "right"),
         ]:
+            childnode = DecisionTreeFormula(label="?")
+            setattr(node, child, childnode)
 
-            if len(subTraces)==0 or len(subTraces) == len(nodeTraces):
-                
-                logging.warning(f"{logname}:{child} child got {len(subTraces.positive)}+{len(subTraces.negative)}={len(subTraces)} traces, it was ineffective!")
+            if len(subTraces) == len(nodeTraces):
+                logging.warning(f"{format_log(subTraces)}: {child} child got all the traces, aborting this branch exploration!")
                 childnode.label="..."
                 if not(return_partial):
                     msg = f"Ineffective split between {len(nodeTraces)} traces with formula {formula.prettyPrint()}."
                     raise RuntimeError(msg)
-                    break
+                    return None
                 continue
-            else:
-                logging.debug(f"{logname}:{child} child got {len(subTraces.positive)}+{len(subTraces.negative)}={len(subTraces)} traces, processing it later.")
 
-            
-            childnode = DecisionTreeFormula(label="?")
-            setattr(node, child, childnode)
-            
+            logging.debug(f"{format_log(subTraces)}: processing {child} child later...")
             queue_push(subTraces, childnode)
 
     return result

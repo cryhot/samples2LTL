@@ -77,7 +77,7 @@ def subprocess_calls(
 			        formula=formula.prettyPrint(),
 			        nSub=formula.getNumberOfSubformulas(),
 					depth=formula.getDepth(),
-					misclassification=1-traces.get_score(formula, score='count'),
+					misclassification=traces.get_misclassification(formula),
 			    )
 			    row = [traces_filename, timePassed, formula.getNumberOfSubformulas() , formula.prettyPrint()]
 
@@ -105,12 +105,12 @@ def subprocess_calls(
 			)
 			record['result'] = datas.Data(
 			    decisionTree=formulaTree.prettyPrint(),
-			    sizeDT=trimedFormulaTree.getSize(),
-			    depthDT=trimedFormulaTree.getDepth(),
+			    sizeDT=formulaTree.getSize(),
+			    depthDT=formulaTree.getDepth(),
 			    formula=flatFormula.prettyPrint(),
 				nSub=flatFormula.getNumberOfSubformulas(),
 				depth=flatFormula.getDepth(),
-				misclassification=1-traces.get_score(trimedFormulaTree, score='count'),
+				misclassification=traces.get_misclassification(flatFormula),
 			)
 
 		elif method == 'SAT-DT':
@@ -133,13 +133,13 @@ def subprocess_calls(
 				record['result'] = datas.Data(
 				    numAtoms=numAtoms,
 				    numPrimitives=numPrimitives,
-					decisionTree=formulaTree.prettyPrint(),
-				    sizeDT=trimedFormulaTree.getSize(),
-				    depthDT=trimedFormulaTree.getDepth(),
+				    decisionTree=formulaTree.prettyPrint(),
+				    sizeDT=formulaTree.getSize(),
+				    depthDT=formulaTree.getDepth(),
 				    formula=flatFormula.prettyPrint(),
 					nSub=flatFormula.getNumberOfSubformulas(),
 					depth=flatFormula.getDepth(),
-					misclassification=1-traces.get_score(trimedFormulaTree, score='count'),
+					misclassification=traces.get_misclassification(flatFormula),
 				)
 			except Exception as err:
 				record['run'] = dict(

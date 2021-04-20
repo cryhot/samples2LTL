@@ -6,6 +6,13 @@ log/
 *.gz
 .idea
 
+atoms.txt
+atoms.dot
+recdt.dot
+*.out.json
+*.out.csv
+compiled.csv
+
 # Created by https://www.toptal.com/developers/gitignore/api/macos,linux,python,windows
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,linux,python,windows
 

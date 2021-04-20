@@ -12,7 +12,8 @@ import logging
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--traces",
+
+    parser.add_argument("-f", "--traces",
         dest='tracesFileName',
         default="traces/dummy.trace",
     )
@@ -31,6 +32,7 @@ def main():
     parser.add_argument("--misclassification", metavar="R",
         dest="misclassification", default=0,
         type=float,
+        help="formula should have a misclassification <= R",
     )
 
     group_sat = parser.add_argument_group('sat method arguments')
@@ -114,7 +116,6 @@ def main():
         logging.info(f"formulas: {[f.prettyPrint() for f in formulas]}, timePassed: {timePassed}")
 
     if args.testRecDtMethod:
-        print(args.tracesFileName)
         formula, timePassed = run_rec_dt(
             traces=traces,
             startDepth=args.startDepth, maxDepth=args.maxDepth, step=args.iterationStep,
@@ -124,12 +125,11 @@ def main():
             timeout=args.timeout,
         )
         trimedFormula = formula.trimPseudoNodes()
-        print("Trimmmed formula",trimedFormula)
         flatFormula = trimedFormula.flattenToFormula()
         logging.debug(f"formula: {formula.prettyPrint()}")
         # logging.debug(f"DT formulas: {flatFormula.prettyPrint()}, timePassed: {timePassed}")
-        logging.info(f"timePassed: {timePassed}, completeDT: {trimedFormula is formula}, sizeDT: {trimedFormula.getSize()}, depthDT: {trimedFormula.getDepth()}, misclassification: {1-traces.get_score(trimedFormula, score='count')}")
-        logging.info(f"misclassification: {1-traces.get_score(flatFormula, score='count')}")
+        logging.info(f"timePassed: {timePassed}, completeDT: {trimedFormula is formula}, sizeDT: {trimedFormula.getSize()}, depthDT: {trimedFormula.getDepth()}, misclassification: {traces.get_misclassification(trimedFormula)}")
+        # logging.info(f"misclassification: {traces.get_misclassification(flatFormula)}")
         # good, bad = traces.splitCorrect(trimedFormula)
         # print
         # good.writeTraces(only_traces=True)

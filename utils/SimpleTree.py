@@ -16,7 +16,7 @@ class SimpleTree:
         return hash((self.label, self.left, self.right))
 
     def __eq__(self, other):
-        if other == None:
+        if not isinstance(other, __class__):
             return False
         else:
             return self.label == other.label and self.left == other.left and self.right == other.right
@@ -322,11 +322,12 @@ class TreeToFormula(Transformer):
         def variable(self, varName):
             return Formula([str(varName[0]), None, None])
         def constant(self, arg):
-            if str(arg[0]) == "true":
-                connector = "|"
-            elif str(arg[0]) == "false":
-                connector = "&"
-            return Formula([connector, Formula(["x0", None, None]), Formula(["!", Formula(["x0", None, None] ), None])])
+            return Formula(str(arg[0]))
+            # if str(arg[0]) == "true":
+            #     connector = "|"
+            # elif str(arg[0]) == "false":
+            #     connector = "&"
+            # return Formula([connector, Formula(["x0", None, None]), Formula(["!", Formula(["x0", None, None] ), None])])
 
         def binary_operator(self, args):
             return str(args[0])
@@ -336,9 +337,27 @@ class TreeToFormula(Transformer):
 
 
 class DecisionTreeFormula(SimpleTree):
+
+    def is_terminal(self):
+        return self in {DT_LEAF_TRUE,DT_LEAF_FALSE}
+
+    def getSize(self):
+        if self.is_terminal():
+            return 0
+        if self.label == "...":
+            return float("inf")
+        return super().getSize()
+
+    def getDepth(self):
+        if self.is_terminal():
+            return 0
+        if self.label == "...":
+            return float("inf")
+        return super().getDepth()
+
     def __repr__(self):
-        left_repr = f"{self.left!r}" if self.left!=None else "*"
-        right_repr = f"{self.right!r}" if self.right!=None else "*"
+        left_repr = f"{self.left!r}" if self.left!=None else ""
+        right_repr = f"{self.right!r}" if self.right!=None else ""
         return f"{self.label};{left_repr};{right_repr}"
 
     @classmethod
@@ -346,7 +365,7 @@ class DecisionTreeFormula(SimpleTree):
         """Opposite of prettyPrint"""
         formulaTextQueue = deque()
         for formulaText in formulaTreeText.split(";"):
-            if formulaText in {"⊤","⊥","*"}: # leaf
+            if not formulaText: # leaf
                 formulaTextQueue.append(None)
             else:
                 try:
@@ -370,23 +389,42 @@ class DecisionTreeFormula(SimpleTree):
 
     def prettyPrint(self, top=False):
         """Opposite of convertTextToFormula"""
-        left_repr = self.left.prettyPrint(top) if self.left!=None else "⊤"
-        right_repr = self.right.prettyPrint(top) if self.right!=None else "⊥"
+        left_repr = self.left.prettyPrint(top) if self.left!=None else ""
+        right_repr = self.right.prettyPrint(top) if self.right!=None else ""
         label_repr = self.label.prettyPrint(top) if isinstance(self.label, SimpleTree) else self.label
         return f"{label_repr};{left_repr};{right_repr}"
 
     def flattenToFormula(self):
-        if self.left==None and self.right==None: # no child
-            return self.label
-        elif self.left==None: # only "False" child
-            return Formula(["|", self.label, self.right.flattenToFormula()])
-        elif self.right==None: # only "True" child
-            return Formula(["&", self.label, self.left.flattenToFormula()])
-        else:
+        Any = "*"
+        left_case = Any
+        if self.left in {DT_LEAF_TRUE,None}: left_case = True
+        if self.left in {DT_LEAF_FALSE}: left_case = False
+        right_case = Any
+        if self.right in {DT_LEAF_TRUE}: right_case = True
+        if self.right in {DT_LEAF_FALSE,None}: right_case = False
+        case = left_case, right_case
+
+        if case == (Any  , Any  ):
             return Formula(["|",
                 Formula(["&", self.label, self.left.flattenToFormula()]),
                 Formula(["&", Formula(["!", self.label]), self.right.flattenToFormula()]),
             ])
+        if case == (Any  , False):
+            return Formula(["&", self.label, self.left.flattenToFormula()])
+        if case == (True , Any  ):
+            return Formula(["|", self.label, self.right.flattenToFormula()])
+        if case == (True , False):
+            return self.label
+        if case == (Any  , True ):
+            return Formula(["|", Formula(["!", self.label]), self.left.flattenToFormula()])
+        if case == (False, Any  ):
+            return Formula(["&", Formula(["!", self.label]), self.right.flattenToFormula()])
+        if case == (False, True ):
+            return Formula(["!", self.label])
+        if case == (True , True ):
+            return Formula("true")
+        if case == (False, False):
+            return Formula("false")
 
 
 
@@ -423,29 +461,37 @@ class DecisionTreeFormula(SimpleTree):
         formula = None
 
         if node is None:
-            if name.endswith("T"):
-                infos.append("⊤")
-                fillcolor = "#37a600"
-                style.append("dashed")
-                formula = Formula('true')
-            elif name.endswith("F"):
-                infos.append("⊥")
-                fillcolor = "#e6300c"
-                style.append("dashed")
-                formula = Formula('false')
+            # if name.endswith("T"):
+            #     infos.append("⊤")
+            #     fillcolor = "#37a600"
+            #     style.append("dashed")
+            #     formula = Formula('true')
+            # elif name.endswith("F"):
+            #     infos.append("⊥")
+            #     fillcolor = "#e6300c"
+            #     style.append("dashed")
+            #     formula = Formula('false')
+            return
         elif not isinstance(node.label, Formula):
             infos.append(node.label)
             fillcolor = "#9940ec"
         else:
             infos.append(node.label.prettyPrint())
             formula = node.label
+            if node==DT_LEAF_TRUE:
+                fillcolor = "#37a600"
+                style.append("dashed")
+            if node==DT_LEAF_FALSE:
+                fillcolor = "#e6300c"
+                style.append("dashed")
+
 
         if traces is not None:
             infos.append(f"traces = {len(traces.positive)} + {len(traces.negative)} = {len(traces)}")
             traces_percentage = p = len(traces)/len(alltraces)
             if formula is not None:
                 if len(traces):
-                    misclassification = m = 1-traces.get_score(formula, score='count')
+                    misclassification = m = traces.get_misclassification(formula)
                     # fillcolor=f"#{int(m*255):02x}{int((1-m)*255):02x}{0:02x}"
                     fillcolor=f"#{int((p*m+1-p)*255):02x}{int((1-p*m)*255):02x}{int((1-p)*255):02x}"
                     infos.append(f"misclass = {misclassification*100:.2f}%")
@@ -474,3 +520,6 @@ class DecisionTreeFormula(SimpleTree):
                 accTraces, rejTraces = traces.splitEval(formula)
             __class__._writeDotNode(node.left,  stream, name=name+"T", indent=indent+"\t", traces=accTraces, alltraces=alltraces)
             __class__._writeDotNode(node.right, stream, name=name+"F", indent=indent+"\t", traces=rejTraces, alltraces=alltraces)
+
+DT_LEAF_TRUE = DecisionTreeFormula(Formula("true"))
+DT_LEAF_FALSE = DecisionTreeFormula(Formula("false"))

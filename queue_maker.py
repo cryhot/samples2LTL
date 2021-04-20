@@ -10,7 +10,9 @@ import glob
 from pprint import pprint
 import itertools
 import functools
+import contextlib
 import argparse
+import logging
 from run_tests import subprocess_calls
 from utils import datas
 
@@ -273,7 +275,7 @@ def createBatchParser(parser):
 	group_multiproc.add_argument("--shutdown-timeout", metavar="T",
 	    dest='shutdownTimeout', default=None,
 	    type=int,
-	    help="additionnal time given to the process to shut itself down before killing it (default: 2+timeout/10 seconds)",
+	    help="additionnal time given to the process to shut itself down before killing it (default: 10+timeout/10 seconds)",
 	)
 	fileformatstrings = list("{%s}" % (key,) for key in subprocess_calls.fileformatstrings)
 	group_multiproc.add_argument("--output-folder-format", metavar="DIRNAME",
@@ -322,12 +324,12 @@ def createBatchParser(parser):
 	    const='MaxSAT', action='store_const',
 		help='ATVA base algo',
 	)
-	group_method.add_argument("--test_sat_dt_method",
+	group_method.add_argument("--test_sat_dt_method", "--test_dt_method",
 	    dest='method',
 	    const='SAT-DT', action='store_const',
 		help='Ivan base Decision tree,',
 	)
-	group_method.add_argument("--test_maxsat_dt_method",
+	group_method.add_argument("--test_maxsat_dt_method", "--test_rec_dt",
 	    dest='method',
 	    const='MaxSAT-DT', action='store_const',
 		help='ATVA Decision tree',
@@ -381,11 +383,11 @@ def createBatchParser(parser):
 		title='dt method arguments'
 	)
 
-	# parser.add_argument("--log", metavar="LVL",
-	#     dest='loglevel', default="INFO",
-	#     # choices="DEBUG, INFO, WARNING, ERROR, CRITICAL".split(", "),
-	#     help="log level, usually in DEBUG, INFO, WARNING, ERROR, CRITICAL",
-	# )
+	parser.add_argument("--log", metavar="LVL",
+	    dest='loglevel', default="WARNING",
+	    # choices="DEBUG, INFO, WARNING, ERROR, CRITICAL".split(", "),
+	    help="log level, usually in DEBUG, INFO, WARNING, ERROR, CRITICAL",
+	)
 
 	return parser
 
@@ -393,7 +395,7 @@ def createBatchParser(parser):
 
 def main_enqueue(args):
 
-	if args.shutdownTimeout is None: args.shutdownTimeout = int(2 + 0.1*args.timeout)
+	if args.shutdownTimeout is None: args.shutdownTimeout = int(10 + 0.1*args.timeout)
 
 	if not args.optimizeDepth: args.optimizeDepth=[1 if 'MaxSAT' in args.method else float("inf")]
 	if not args.optimize: args.optimize=['count']
@@ -403,6 +405,10 @@ def main_enqueue(args):
 	for key in {'optimizeDepth', 'minScore'}:
 		setattr(args, key, list(itertools.chain.from_iterable(str2nums(m) for m in getattr(args, key))))
 
+
+	# numeric_level = getattr(logging, args.loglevel.upper())
+	numeric_level = args.loglevel.upper()
+	logging.basicConfig(level=numeric_level)
 
 	m = multiprocess(
 		tracesFolderName=args.traces_folder,
@@ -514,6 +520,9 @@ def main_compile_json(args):
 	from utils import datas
 	from utils.SimpleTree import Formula, DecisionTreeFormula
 
+	output_file = args.output_file
+	if output_file == "-": output_file = sys.stdout
+
 	headers = []
 	expressions = []
 	for column in args.columns:
@@ -528,8 +537,10 @@ def main_compile_json(args):
 		src,dst = subst.split(':')
 		traces_file_subst.append((os.path.realpath(src),os.path.realpath(dst)))
 
-
-	with open(args.output_file, 'w') as f1:
+	if isinstance(output_file, str): cm = open(output_file, "w")
+	# else: cm = contextlib.nullcontext(output_file)
+	else: cm = contextlib.contextmanager(lambda: (yield output_file))()
+	with cm as f1:
 		writer = csv.writer(f1)
 		if args.with_header:
 			writer.writerow(headers)
