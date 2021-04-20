@@ -65,7 +65,7 @@ def main():
     group_maxsat.add_argument("--min_score", metavar="S",
         dest='minScore', default=0,
         type=float,
-        help="formula should achieve a score > S",
+        help="formula should achieve a score >= S",
     )
     group_sat.add_argument("--max_num_formulas", metavar="N",
         dest='numFormulas', default=1,

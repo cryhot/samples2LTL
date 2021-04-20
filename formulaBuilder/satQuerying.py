@@ -45,8 +45,8 @@ def get_models(
             solverModel = fg.solver.model()
             formula = fg.reconstructWholeFormula(solverModel)
             if fg.optimize:
-                score = fg.optimize and traces.get_score(formula, fg.optimize)
-                if score <= minScore:
+                score = traces.get_score(formula, fg.optimize)
+                if score < minScore:
                     acceptFormula = False
                     logging.debug(f"score too low for i = {i} ({fg.optimize}={score})")
         if not acceptFormula:
