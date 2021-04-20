@@ -97,7 +97,6 @@ class Trace:
             return self.__truthValue(formula, 0)
 
         elif isinstance(formula, DecisionTreeFormula):
-
             truthValue = None
             tree = formula
             while tree is not None:

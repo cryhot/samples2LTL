@@ -11,7 +11,6 @@ from multiprocessing import Process, Queue
 import logging
 
 def main():
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--traces",
         dest='tracesFileName',
@@ -115,6 +114,7 @@ def main():
         logging.info(f"formulas: {[f.prettyPrint() for f in formulas]}, timePassed: {timePassed}")
 
     if args.testRecDtMethod:
+        print(args.tracesFileName)
         formula, timePassed = run_rec_dt(
             traces=traces,
             startDepth=args.startDepth, maxDepth=args.maxDepth, step=args.iterationStep,
@@ -124,6 +124,7 @@ def main():
             timeout=args.timeout,
         )
         trimedFormula = formula.trimPseudoNodes()
+        print("Trimmmed formula",trimedFormula)
         flatFormula = trimedFormula.flattenToFormula()
         logging.debug(f"formula: {formula.prettyPrint()}")
         # logging.debug(f"DT formulas: {flatFormula.prettyPrint()}, timePassed: {timePassed}")
@@ -142,8 +143,6 @@ def main():
             misclassification=args.misclassification,
         )
         logging.info(f"timePassed: {timePassed}, numAtoms: {numAtoms}, numPrimitives: {numPrimitives}")
-
-
 
 
 

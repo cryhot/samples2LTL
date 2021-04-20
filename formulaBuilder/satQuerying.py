@@ -102,6 +102,7 @@ def get_rec_dt(
     tictoc_total = TicToc()
     tictoc_total.tic()
 
+
     if search in {"depth","breath"}:
         queue = deque()
         queue_push = lambda nodeTraces, node: queue.append((nodeTraces, node))
@@ -116,10 +117,23 @@ def get_rec_dt(
 
     result = DecisionTreeFormula(label="?")
     queue_push(traces, result)
-
+    i=0
     while queue:
-
         nodeTraces, node = queue_pop()
+
+        positive_ratio = float(len(nodeTraces.positive)/(len(nodeTraces.positive)+len(nodeTraces.negative)))
+        negative_ratio = 1-positive_ratio
+        if (positive_ratio <= misclassification) or (negative_ratio <= misclassification):
+
+            logging.debug(f"{logname}:Stopping criterion reached with {len(nodeTraces.positive)} positives and {len(nodeTraces.negative)} negatives, it was effective!")
+            if positive_ratio <= misclassification:
+                node.label = Formula('false')
+            else:
+                node.label = Formula('true')
+            #childnode = DecisionTreeFormula(label="?")
+            #setattr(node, child, childnode)
+            continue
+
         logging.debug(f"{logname}:solving on (pos+neg)={len(nodeTraces.positive)}+{len(nodeTraces.negative)}={len(nodeTraces)} traces...")
 
         formulas = get_models(
@@ -134,18 +148,16 @@ def get_rec_dt(
             break
         node.label = formula = formulas[0]
         accTraces, rejTraces = nodeTraces.splitEval(formula)
-
+        
+        i+=1
         subbranches = []
         for subTraces, child in [
             (accTraces, "left" ),
             (rejTraces, "right"),
         ]:
-            if len(subTraces)==0 or (1-subTraces.get_score(formula, score='count') <= misclassification):
-                logging.debug(f"{logname}:{child} child got {len(subTraces.positive)}+{len(subTraces.negative)}={len(subTraces)} traces, it was effective!")
-                continue # no child
-            childnode = DecisionTreeFormula(label="?")
-            setattr(node, child, childnode)
-            if len(subTraces) == len(nodeTraces):
+
+            if len(subTraces)==0 or len(subTraces) == len(nodeTraces):
+                
                 logging.warning(f"{logname}:{child} child got {len(subTraces.positive)}+{len(subTraces.negative)}={len(subTraces)} traces, it was ineffective!")
                 childnode.label="..."
                 if not(return_partial):
@@ -155,6 +167,11 @@ def get_rec_dt(
                 continue
             else:
                 logging.debug(f"{logname}:{child} child got {len(subTraces.positive)}+{len(subTraces.negative)}={len(subTraces)} traces, processing it later.")
+
+            
+            childnode = DecisionTreeFormula(label="?")
+            setattr(node, child, childnode)
+            
             queue_push(subTraces, childnode)
 
     return result

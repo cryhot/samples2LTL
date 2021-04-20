@@ -388,6 +388,8 @@ class DecisionTreeFormula(SimpleTree):
                 Formula(["&", Formula(["!", self.label]), self.right.flattenToFormula()]),
             ])
 
+
+
     def trimPseudoNodes(self):
         """return a copy where pseudo leaves such as "..." are trimed.
         Return the tree itself if no change is made."""
