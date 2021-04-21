@@ -146,7 +146,7 @@ def get_rec_dt(
             timeout=timeout-tictoc_total.tocvalue(),
         )
         if len(formulas)<1: # timeout
-            if not(return_partial):
+            if not return_partial:
                 return None
             break
         node.label = formula = formulas[0]
@@ -162,7 +162,7 @@ def get_rec_dt(
             if len(subTraces) == len(nodeTraces):
                 logging.warning(f"{format_log(subTraces)}: {child} child got all the traces, aborting this branch exploration!")
                 childnode.label="..."
-                if not(return_partial):
+                if not return_partial:
                     msg = f"Ineffective split between {len(nodeTraces)} traces with formula {formula.prettyPrint()}."
                     raise RuntimeError(msg)
                     return None

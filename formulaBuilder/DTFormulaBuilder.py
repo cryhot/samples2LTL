@@ -5,7 +5,7 @@ import graphviz
 from collections import deque
 #from boto.cloudformation.stack import Output
 import os
-from utils.Traces import DecisionTreeFormula
+from utils.SimpleTree import DecisionTreeFormula, DT_LEAF_TRUE, DT_LEAF_FALSE
 
 class DTFormulaBuilder:
     def __init__(self, features=None, data=None, labels=None, stoppingVal=0):
@@ -74,14 +74,14 @@ class DTFormulaBuilder:
                     treeQueue.append((tree_.children_right[node], depth+1))
         print(treeQueue)
 
-    def tree_to_DecisionTreeFormula(self, node=0):
+    def tree_to_DecisionTreeFormula(self, node=0, default=None):
         tree_ = self.classifier.tree_
         i = tree_.feature[node]
         if i == _tree.TREE_UNDEFINED:
-            return None
+            return default
         result = DecisionTreeFormula(self.features[i])
-        result.left = self.tree_to_DecisionTreeFormula(node=tree_.children_left[node])
-        result.right = self.tree_to_DecisionTreeFormula(node=tree_.children_right[node])
+        result.left  = self.tree_to_DecisionTreeFormula(node=tree_.children_left[node],  default=DT_LEAF_TRUE)
+        result.right = self.tree_to_DecisionTreeFormula(node=tree_.children_right[node], default=DT_LEAF_FALSE)
         return result
 
     def numberOfNodes(self):

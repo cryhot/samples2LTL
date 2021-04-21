@@ -97,21 +97,24 @@ def subprocess_calls(
 				# timeout=args.timeout,
 				**solver_args,
 			)
-			trimedFormulaTree = formulaTree.trimPseudoNodes()
-			flatFormula = trimedFormulaTree.flattenToFormula()
-			record['run'] = datas.Data(
-			    time=timePassed,
-			    success=trimedFormulaTree is formulaTree,
-			)
 			record['result'] = datas.Data(
 			    decisionTree=formulaTree.prettyPrint(),
 			    sizeDT=formulaTree.getSize(),
 			    depthDT=formulaTree.getDepth(),
-			    formula=flatFormula.prettyPrint(),
-				nSub=flatFormula.getNumberOfSubformulas(),
-				depth=flatFormula.getDepth(),
-				misclassification=traces.get_misclassification(flatFormula),
 			)
+			trimedFormulaTree = formulaTree.trimPseudoNodes()
+			record['run'] = datas.Data(
+			    time=timePassed,
+			    success=trimedFormulaTree is formulaTree,
+			)
+			if trimedFormulaTree is not None:
+				flatFormula = trimedFormulaTree.flattenToFormula()
+				record['result'].update(
+				    formula=flatFormula.prettyPrint(),
+					nSub=flatFormula.getNumberOfSubformulas(),
+					depth=flatFormula.getDepth(),
+					misclassification=traces.get_misclassification(flatFormula),
+				)
 
 		elif method == 'SAT-DT':
 
@@ -123,24 +126,30 @@ def subprocess_calls(
 					**solver_args,
 					record_result=record_result,
 		        )
-				formulaTree = record_result.pop('formulaTree')
-				trimedFormulaTree = formulaTree.trimPseudoNodes()
-				flatFormula = trimedFormulaTree.flattenToFormula()
-				record['run'] = datas.Data(
-				    time=timePassed,
-				    success=True,
-				)
+
 				record['result'] = datas.Data(
 				    numAtoms=numAtoms,
 				    numPrimitives=numPrimitives,
+				)
+				formulaTree = record_result.pop('formulaTree')
+				record['result'].update(
 				    decisionTree=formulaTree.prettyPrint(),
 				    sizeDT=formulaTree.getSize(),
 				    depthDT=formulaTree.getDepth(),
-				    formula=flatFormula.prettyPrint(),
-					nSub=flatFormula.getNumberOfSubformulas(),
-					depth=flatFormula.getDepth(),
-					misclassification=traces.get_misclassification(flatFormula),
 				)
+				trimedFormulaTree = formulaTree.trimPseudoNodes()
+				record['run'] = datas.Data(
+				    time=timePassed,
+				    success=trimedFormulaTree is formulaTree,
+				)
+				if trimedFormulaTree is not None:
+					flatFormula = trimedFormulaTree.flattenToFormula()
+					record['result'].update(
+					    formula=flatFormula.prettyPrint(),
+						nSub=flatFormula.getNumberOfSubformulas(),
+						depth=flatFormula.getDepth(),
+						misclassification=traces.get_misclassification(flatFormula),
+					)
 			except Exception as err:
 				record['run'] = dict(
 				    time=solver_args.get('timeout'),
