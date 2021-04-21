@@ -565,10 +565,25 @@ def main_compile_json(args):
 				msg = f"while evaluating {expr!r} on {input_file}"
 				raise RuntimeError(msg) from err
 		#Collating the results
+		processed = []
 		for input_file in input_files:
 			try:
 				with open(input_file, 'r') as f2:
 					record = json.load(f2, object_hook=datas.Data)
+					for key in {'traces', 'run', 'result'}:
+						record.setdefault(key, datas.Data())
+
+					# pre_compute filter for optim purpose
+					for expr in args.filters:
+						try:
+							if eval_expr(expr, record): continue
+							skip = True
+							break
+						except Exception:
+							pass
+					else: skip = False
+					if skip: continue
+
 					if record.traces.filename:
 						record.traces = datas.json_traces_file(record.traces, level=datas.FULL)
 					if record.result.formula:
@@ -600,6 +615,8 @@ def main_compile_json(args):
 			except Exception as err:
 				msg = f"while handling {input_file}"
 				raise RuntimeError(msg) from err
+			processed.append(input_file)
+		print(f"{len(processed)} result files compiled.", file=sys.stderr)
 
 
 
