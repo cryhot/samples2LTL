@@ -84,7 +84,6 @@ def run_dt_solver(
             timeout=timeout-t.tocvalue(),
         )
 
-        print(ab.atoms, ab.getMatrixRepresentation())
         fb = DTFormulaBuilder(
             features=ab.atoms,
             data=ab.getMatrixRepresentation(),

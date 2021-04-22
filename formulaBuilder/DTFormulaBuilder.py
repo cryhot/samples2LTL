@@ -72,7 +72,6 @@ class DTFormulaBuilder:
                 if tree_.feature[node] != _tree.TREE_UNDEFINED:
                     treeQueue.append((tree_.children_left[node], depth+1))
                     treeQueue.append((tree_.children_right[node], depth+1))
-        print(treeQueue)
 
     def tree_to_DecisionTreeFormula(self, node=0, default=None):
         tree_ = self.classifier.tree_
