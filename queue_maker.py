@@ -313,26 +313,27 @@ def createBatchParser(parser):
 	group_method.add_argument("--test",
 	    dest='method',
 	    choices=subprocess_calls.methods,
+		help="shortcut for the following 4 methods",
 	)
 	group_method.add_argument("--test_sat_method",
 	    dest='method',
 	    const='SAT', action='store_const',
-		help='Ivan base algo',
+		help='Neider and Gavran SAT based algorithm',
 	)
 	group_method.add_argument("--test_maxsat_method",
 	    dest='method',
 	    const='MaxSAT', action='store_const',
-		help='ATVA base algo',
+		help='ATVA MaxSAT based algorithm',
 	)
 	group_method.add_argument("--test_sat_dt_method", "--test_dt_method",
 	    dest='method',
 	    const='SAT-DT', action='store_const',
-		help='Ivan base Decision tree,',
+		help='Neider and Gavran Decision tree based on SAT',
 	)
 	group_method.add_argument("--test_maxsat_dt_method", "--test_rec_dt",
 	    dest='method',
 	    const='MaxSAT-DT', action='store_const',
-		help='ATVA Decision tree',
+		help='ATVA Decision tree based on MaxSAT',
 	)
 
 	parser.add_argument("--misclassification", metavar="R",
@@ -497,15 +498,15 @@ def createCompileJsonParser(parser):
 		dest='with_header', #default=True,
 		action="store_false",
 	)
-	group_data.add_argument('--replace-traces', metavar="SRC:DST",
-		dest='traces_file_subst', default=[],
-		action="append",
-		help="replace traces from SRC subdirectories by the ones in DST",
-	)
 	group_data.add_argument('--filter', metavar="EXPR",
 		dest='filters', default=[],
 		action="append",
 		help="keep only traces where EXPR evaluates to True",
+	)
+	group_data.add_argument('--replace-traces', metavar="SRC:DST",
+		dest='traces_file_subst', default=[],
+		action="append",
+		help="replace traces from SRC subdirectories by the ones in DST (applies after --filter)",
 	)
 	group_data.add_argument('columns', metavar="COL:EXPR",
 		nargs='*',
@@ -558,38 +559,44 @@ def main_compile_json(args):
 			SATDT="SAT-DT", SAT_DT="SAT-DT",
 			MaxSATDT="MaxSAT-DT", MaxSAT_DT="MaxSAT-DT",
 		)
-		def eval_expr(expr, record):
+		def eval_expr(expr, record, ignore_exceptions=False):
 			try:
 				return eval(expr, dict(record))
 			except Exception as err:
-				msg = f"while evaluating {expr!r} on {input_file}"
-				raise RuntimeError(msg) from err
+				if not ignore_exceptions:
+					msg = f"while evaluating {expr!r} on {input_file}"
+					raise RuntimeError(msg) from err
 		#Collating the results
 		processed = []
 		for input_file in input_files:
 			try:
 				with open(input_file, 'r') as f2:
 					record = json.load(f2, object_hook=datas.Data)
-					for key in {'traces', 'run', 'result'}:
-						record.setdefault(key, datas.Data())
 
-					# pre_compute filter for optim purpose
-					for expr in args.filters:
-						try:
-							if eval_expr(expr, record): continue
-							skip = True
-							break
-						except Exception:
-							pass
-					else: skip = False
-					if skip: continue
+				# pre_compute filter for optim purpose
+				if any(not eval_expr(expr, record, ignore_exceptions=True) for expr in args.filters): continue
 
-					if record.traces.filename:
-						record.traces = datas.json_traces_file(record.traces, level=datas.FULL)
-					if record.result.formula:
-						record.formula = Formula.convertTextToFormula(record.result.formula)
-					if record.result.decisionTree:
-						record.decisionTree = DecisionTreeFormula.convertTextToFormula(record.result.decisionTree)
+				# load additional variables
+				for key in {'traces', 'run', 'result'}:
+					record.setdefault(key, datas.Data())
+				for key in {'sample', 'formula', 'decisionTree'}:
+					record.setdefault(key, None)
+				if record.traces.filename:
+					record.traces = datas.json_traces_file(record.traces, level=datas.FULL)
+				if record.traces.traces:
+					record.sample = record.traces.traces
+				if record.result.formula:
+					record.formula = Formula.convertTextToFormula(record.result.formula)
+				if record.result.decisionTree:
+					record.decisionTree = DecisionTreeFormula.convertTextToFormula(record.result.decisionTree)
+				for key in {'result.misclassification','algo.args.minScore','run.time'}:
+					if not isinstance(record[key], float): continue
+					record[key] = numpy.round(record[key], decimals=15)
+
+				# filtering traces
+				if any(not eval_expr(expr, record) for expr in args.filters): continue
+
+				# trace file substitution
 				for src, dst in traces_file_subst:
 					trc = os.path.realpath(record.traces.filename)
 					if os.path.commonpath([trc, src]) != src: continue
@@ -597,20 +604,20 @@ def main_compile_json(args):
 					if not os.path.isabs(record.traces.filename):
 						trc = os.path.relpath(trc)
 					record.traces = datas.json_traces_file(dict(filename=trc), level=datas.FULL)
+					record.sample = record.traces.traces
 					if record.formula is not None:
 						record.result.misclassification = 1-record.traces.traces.get_score(record.formula, score='count')
+						record.result.misclassification = numpy.round(record.result.misclassification, decimals=15)
 					break
 				if record.traces.traces:
 					record.sample = record.traces.traces
 				for key in {'result.misclassification','algo.args.minScore','run.time'}:
 					if not isinstance(record[key], float): continue
 					record[key] = numpy.round(record[key], decimals=15)
-				if record.traces.traces:
-					record.sample = record.traces.traces
 
-				if any(not eval_expr(expr, record) for expr in args.filters): continue
-
-				values = [str(eval_expr(expr, record)) for expr in expressions]
+				values = [eval_expr(expr, record) for expr in expressions]
+				# values = ["" if value is None else value for value in values]
+				# values = [str(value) for value in values]
 				writer.writerow(values)
 			except Exception as err:
 				msg = f"while handling {input_file}"
