@@ -11,6 +11,7 @@ It implements the following features:
 ---
 
 # traces2LTL
+[![Python package](https://github.com/cryhot/samples2LTL/actions/workflows/pythonpackage.yaml/badge.svg)](https://github.com/cryhot/samples2LTL/actions/workflows/pythonpackage.yaml)
 
 The goal is to learn an LTL formula that separates set of positive (P) and negative (N) traces. The resulting formula should be a model for every trace in P and should not be a model for any of the traces from N.
 There are three methods in this repository:

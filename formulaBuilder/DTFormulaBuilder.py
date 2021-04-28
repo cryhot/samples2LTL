@@ -10,7 +10,7 @@ from utils.SimpleTree import DecisionTreeFormula, DT_LEAF_TRUE, DT_LEAF_FALSE
 class DTFormulaBuilder:
     def __init__(self, features=None, data=None, labels=None, stoppingVal=0):
         self.features = features
-        self.data = [[self.convertData(k) for k in traceValuesPerFormulas] for traceValuesPerFormulas in data] 
+        self.data = [[self.convertData(k) for k in traceValuesPerFormulas] for traceValuesPerFormulas in data]
         self.labels = [self.convertData(l) for l in labels]
         self.stoppingVal = stoppingVal
 
@@ -24,33 +24,33 @@ class DTFormulaBuilder:
         self.data = []
         with open(fileName) as inputFile:
             for line in inputFile:
-                self.data.append(convertData(k) for k in line.split(','))
+                self.data.append(self.convertData(k) for k in line.split(','))
 
     def readLabelsFromFile(self, fileName):
         self.labels = []
         with open(fileName) as inputFile:
             for line in inputFile:
-                self.labels.append(convertData(line))
+                self.labels.append(self.convertData(line))
 
     def readDataFeaturesFile(self, fileName):
         self.features = []
         with open(fileName) as inputFile:
             for line in inputFile:
                 self.features.append(line)
-                
+
     def createASeparatingFormula(self):
         if self.data == None or self.labels == None:
             raise ValueError("missing needed data")
 
-        #using appropriate gini stopping criteria to match our stopping criteria 
-        convertStoppingVal = 2*(self.stoppingVal)*(1-self.stoppingVal) 
+        #using appropriate gini stopping criteria to match our stopping criteria
+        convertStoppingVal = 2*(self.stoppingVal)*(1-self.stoppingVal)
         self.classifier = tree.DecisionTreeClassifier(min_impurity_split=convertStoppingVal).fit(self.data, self.labels)
-        
+
     def tree_to_dot_file(self, outputFile):
         treeDotFormat = tree.export_graphviz(self.classifier, out_file=outputFile, feature_names = self.features, filled=True)
-    
+
     def tree_to_text_file(self, outputFile):
-        
+
         treeQueue = deque([(0,1)])
         inputTree = self.classifier
         tree_ = inputTree.tree_
@@ -65,7 +65,7 @@ class DTFormulaBuilder:
         with open(outputFile, "w") as out:
             while treeQueue:
                 (node, depth) = treeQueue.pop()
-                
+
                 indent = "  " * depth
                 decisionFormula = feature_names[node]
                 out.write("{}{} : {}\n".format(indent, decisionFormula, tree_.n_node_samples[node]))
@@ -86,8 +86,3 @@ class DTFormulaBuilder:
     def numberOfNodes(self):
         tree_ = self.classifier.tree_
         return len([i for i in tree_.feature if i != _tree.TREE_UNDEFINED])
-        
-        
-        
-        
-        

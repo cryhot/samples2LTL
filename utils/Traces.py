@@ -195,7 +195,7 @@ class ExperimentTraces:
             if not accTrace.evaluateFormulaOnTrace(f):
                 return False
         for rejTrace in self.rejectedTraces:
-            if not rejTrace.evaluateFormulaOnTrace(f):
+            if rejTrace.evaluateFormulaOnTrace(f):
                 return False
         return True
 
