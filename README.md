@@ -25,7 +25,7 @@ There are three methods in this repository:
 
 ## Setup
 - setup a virtualenvironment for python 3.6 ([link](http://virtualenvwrapper.readthedocs.io/en/latest/)) and activate it (`workon ...`)
-- run `pip install -r requirements.txt` to qinstall all necessary python packages available from pip
+- run `pip install -r requirements.txt` to install all necessary python packages available from pip
 - install Z3 with python bindings ([link](https://github.com/Z3Prover/z3#python))
 
 ## Running

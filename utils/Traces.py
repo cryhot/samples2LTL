@@ -179,6 +179,34 @@ class ExperimentTraces:
         self.operators = operators
         self.depthOfSolution = depth
         self.possibleSolution = possibleSolution
+    
+    def copy(self):
+        return __class__(
+            numVariables=self.numVariables,
+            tracesToAccept=self.acceptedTraces[:],
+            tracesToReject=self.rejectedTraces[:],
+            operators=self.operators,
+            depth=self.depthOfSolution,
+            possibleSolution=self.possibleSolution,
+        )
+    
+    def extend(self, *other):
+        """merge other samples into this one"""
+        for o in other:
+            assert o.numVariables == self.numVariables
+            self.acceptedTraces.extend(o.acceptedTraces)
+            self.rejectedTraces.extend(o.rejectedTraces)
+    
+    def negate(self):
+        """Switches pos and neg trajectories"""
+        self.acceptedTraces, self.rejectedTraces = self.rejectedTraces, self.acceptedTraces
+    
+    def __neg__(self): ans = self.copy(); ans.negate(); return ans
+    def __iadd__(self, other): self.extend(other); return self
+    def __add__(self, other): ans = self.copy(); ans += other; return ans
+    def __isub__(self, other): self += (-other); return self
+    def __sub__(self, other): return self + (-other)
+
 
     def __len__(self):
         return len(self.acceptedTraces) + len(self.rejectedTraces)
@@ -253,7 +281,7 @@ class ExperimentTraces:
     def negative(self):
         return __class__(
             numVariables=self.numVariables,
-            tracesToAccept=self.rejectedTraces,
+            tracesToReject=self.rejectedTraces,
             operators=self.operators,
             depth=self.depthOfSolution,
             possibleSolution=self.possibleSolution,
